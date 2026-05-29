@@ -9,795 +9,605 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f4;
-    --bg-tertiary: #f0efed;
-    --text-primary: #1a1a18;
-    --text-secondary: #6b6b67;
-    --text-tertiary: #9b9b96;
-    --border: rgba(0,0,0,0.1);
-    --border-md: rgba(0,0,0,0.15);
-    --teal: #0F6E56;
-    --teal-lt: #E1F5EE;
-    --teal-dk: #085041;
-    --amber: #BA7517;
-    --amber-lt: #FAEEDA;
-    --red: #A32D2D;
-    --red-lt: #FCEBEB;
-    --blue: #185FA5;
-    --blue-lt: #E6F1FB;
-    --green-lt: #EAF3DE;
-    --green: #3B6D11;
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --font: 'Inter', system-ui, sans-serif;
-    --mono: 'JetBrains Mono', monospace;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg-primary: #1c1c1a;
-      --bg-secondary: #252523;
-      --bg-tertiary: #2e2e2c;
-      --text-primary: #e8e8e4;
-      --text-secondary: #9b9b96;
-      --text-tertiary: #6b6b67;
-      --border: rgba(255,255,255,0.1);
-      --border-md: rgba(255,255,255,0.15);
-      --teal-lt: #04342C;
-      --amber-lt: #412402;
-      --red-lt: #501313;
-      --blue-lt: #042C53;
-      --green-lt: #173404;
-    }
-  }
-
-  html, body { height: 100%; }
-  body { font-family: var(--font); font-size: 14px; color: var(--text-primary); background: var(--bg-tertiary); line-height: 1.5; }
-
-  /* Layout */
-  .app { display: flex; height: 100vh; flex-direction: column; }
-  .topbar { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0 16px; height: 50px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; z-index: 10; }
-  .topbar-logo { font-weight: 600; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap; }
-  .topbar-logo span { color: var(--teal); }
-  .topbar-logo small { font-size: 11px; font-weight: 400; color: var(--text-secondary); margin-left: 6px; }
-  .topbar-sep { flex: 1; }
-  .topbar-pt { font-size: 12px; color: var(--text-secondary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px 10px; display: flex; align-items: center; gap: 6px; }
-  .topbar-pt strong { color: var(--text-primary); font-weight: 500; }
-  .topbar-accn { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); display: none; }
-
-  .main { display: flex; flex: 1; overflow: hidden; }
-
-  .sidebar { width: 168px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg-secondary); display: flex; flex-direction: column; padding: 8px 0; overflow-y: auto; }
-  .nav-group-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-tertiary); padding: 10px 14px 4px; }
-  .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: background 0.1s, color 0.1s; border-left: 2px solid transparent; }
-  .nav-item:hover { background: var(--bg-primary); color: var(--text-primary); }
-  .nav-item.active { background: var(--bg-primary); color: var(--teal); font-weight: 500; border-left-color: var(--teal); }
-  .nav-item i { font-size: 16px; flex-shrink: 0; }
-  .nav-footer { margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-tertiary); line-height: 1.6; }
-
-  .content { flex: 1; overflow-y: auto; padding: 20px; }
-  .panel { display: none; max-width: 900px; }
-  .panel.active { display: block; }
-
-  /* Typography */
-  .page-title { font-size: 17px; font-weight: 600; margin-bottom: 2px; }
-  .page-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 18px; }
-  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); margin: 16px 0 8px; }
-  .section-label:first-child { margin-top: 0; }
-
-  /* Cards */
-  .card { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
-  .card-title { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
-
-  /* Grid */
-  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .row-between { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-
-  /* Form elements */
-  label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; margin-top: 12px; }
-  label:first-child { margin-top: 0; }
-  input[type=text], input[type=number], select, textarea {
-    width: 100%; font-size: 13px; padding: 7px 10px;
-    border: 1px solid var(--border-md); border-radius: var(--radius-md);
-    background: var(--bg-secondary); color: var(--text-primary);
-    font-family: var(--font);
-    transition: border-color 0.15s;
-  }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--teal); }
-  textarea { resize: vertical; min-height: 64px; }
-
-  /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; font-size: 13px; font-family: var(--font); border: 1px solid var(--border-md); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; transition: background 0.1s; white-space: nowrap; }
-  .btn:hover { background: var(--bg-secondary); }
-  .btn-primary { background: var(--teal); color: #fff; border-color: var(--teal); }
-  .btn-primary:hover { background: var(--teal-dk); }
-  .btn-amber { background: var(--amber-lt); color: var(--amber); border-color: #FAC775; }
-  .btn-danger { background: var(--red-lt); color: var(--red); border-color: #F7C1C1; }
-  .btn-sm { padding: 4px 10px; font-size: 12px; }
-
-  /* Badges */
-  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 20px; }
-  .b-green { background: var(--green-lt); color: var(--green); }
-  .b-red { background: var(--red-lt); color: var(--red); }
-  .b-amber { background: var(--amber-lt); color: var(--amber); }
-  .b-blue { background: var(--blue-lt); color: var(--blue); }
-  .b-gray { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); }
-
-  /* Divider */
-  hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-
-  /* Tables */
-  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .tbl th { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
-  .tbl td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  .tbl tr:last-child td { border-bottom: none; }
-  .tbl tbody tr:hover td { background: var(--bg-secondary); }
-  .tbl-section td { background: var(--bg-secondary) !important; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); padding: 5px 8px; }
-
-  /* Stat cards */
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-  .stat { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
-  .stat-n { font-size: 24px; font-weight: 600; line-height: 1; }
-  .stat-l { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-
-  /* Order items */
-  .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 8px; }
-  .oi { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; cursor: pointer; font-size: 12px; color: var(--text-secondary); transition: all 0.1s; user-select: none; }
-  .oi:hover { background: var(--bg-secondary); color: var(--text-primary); }
-  .oi.sel { border-color: var(--teal); background: var(--teal-lt); color: var(--teal); font-weight: 500; }
-  .oi-name { font-weight: 500; font-size: 13px; margin-bottom: 2px; }
-  .oi-code { font-size: 10px; font-family: var(--mono); opacity: 0.65; }
-
-  /* Accession box */
-  .accn-box { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: 3px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 18px; display: inline-block; }
-
-  /* Tube chips */
-  .tube { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-secondary); }
-  .tube-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
-
-  /* Flags */
-  .f-h { color: var(--red); font-weight: 600; }
-  .f-l { color: var(--blue); font-weight: 600; }
-  .f-crit { color: var(--red); font-weight: 700; font-size: 11px; background: var(--red-lt); padding: 1px 6px; border-radius: 4px; }
-
-  /* Critical banner */
-  .crit-banner { background: var(--red-lt); border: 1px solid #F7C1C1; border-radius: var(--radius-md); padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; font-size: 13px; color: var(--red); }
-  .crit-banner i { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
-
-  /* Result input */
-  input.ri { width: 90px; text-align: right; font-family: var(--mono); }
-
-  /* AI */
-  .ai-box { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; min-height: 60px; }
-  .thinking { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); padding: 8px 0; }
-  .spin { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* UA styles */
-  .ua-row { display: grid; grid-template-columns: 190px 1fr 150px 60px; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-  .ua-row:last-child { border-bottom: none; }
-  .ua-lbl { font-size: 13px; }
-  .ua-ref { font-size: 11px; color: var(--text-tertiary); text-align: right; }
-  .ua-flag { font-size: 12px; }
-  .ua-abn { background: var(--amber-lt); border-radius: var(--radius-sm); }
-  .micro-card { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 10px 12px; }
-  .micro-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 6px; }
-
-  /* Patient file report */
-  .rpt-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
-  .rpt-row:last-child { border-bottom: none; }
-  .rpt-abn { color: var(--red); font-weight: 500; }
-  .rpt-section { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin: 12px 0 6px; }
-
-  /* QC */
-  .lj-wrap { position: relative; height: 210px; }
-
-  /* Toast */
-  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 16px; font-size: 13px; z-index: 9999; display: none; align-items: center; gap: 8px; max-width: 300px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-  #toast.show { display: flex; }
-  #toast.t-ok { color: var(--teal); border-color: #9FE1CB; }
-  #toast.t-err { color: var(--red); border-color: #F7C1C1; background: var(--red-lt); }
-
-  /* API key banner */
-
-  /* Welcome screen */
-  .welcome { text-align: center; padding: 40px 20px; }
-  .welcome h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
-  .welcome p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px; font-size: 13px; line-height: 1.7; }
-
-  @media (max-width: 640px) {
-    .sidebar { width: 48px; }
-    .nav-item span { display: none; }
-    .nav-group-label { display: none; }
-    .stats { grid-template-columns: repeat(2,1fr); }
-    .g2, .g3, .g4 { grid-template-columns: 1fr; }
-    .ua-row { grid-template-columns: 1fr 1fr; }
-    .ua-ref { display: none; }
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#fff;--bg2:#f5f5f4;--bg3:#f0efed;
+  --tx:#1a1a18;--tx2:#6b6b67;--tx3:#9b9b96;
+  --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.15);
+  --teal:#0F6E56;--teal-lt:#E1F5EE;--teal-dk:#085041;
+  --amber:#BA7517;--amber-lt:#FAEEDA;
+  --red:#A32D2D;--red-lt:#FCEBEB;
+  --blue:#185FA5;--blue-lt:#E6F1FB;
+  --green-lt:#EAF3DE;--green:#3B6D11;
+  --orange:#C05A00;--orange-lt:#FEF0E0;
+  --purple:#6B3FA0;--purple-lt:#F0E8FF;
+  --r-sm:6px;--r-md:8px;--r-lg:12px;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2c;
+  --tx:#e8e8e4;--tx2:#9b9b96;--tx3:#6b6b67;
+  --bd:rgba(255,255,255,0.1);--bd2:rgba(255,255,255,0.15);
+  --teal-lt:#04342C;--amber-lt:#412402;--red-lt:#501313;
+  --blue-lt:#042C53;--green-lt:#173404;--orange-lt:#3D1A00;--purple-lt:#2A1040;
+}}
+html,body{height:100%;}
+body{font-family:var(--font);font-size:14px;color:var(--tx);background:var(--bg3);line-height:1.5;}
+.app{display:flex;height:100vh;flex-direction:column;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--bd);padding:0 16px;height:50px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:10;}
+.topbar-logo{font-weight:600;font-size:15px;letter-spacing:-0.3px;white-space:nowrap;}
+.topbar-logo span{color:var(--teal);}
+.topbar-logo small{font-size:11px;font-weight:400;color:var(--tx2);margin-left:6px;}
+.topbar-sep{flex:1;}
+.topbar-pt{font-size:12px;color:var(--tx2);background:var(--bg);border:1px solid var(--bd);border-radius:var(--r-md);padding:5px 10px;display:flex;align-items:center;gap:6px;}
+.topbar-pt strong{color:var(--tx);font-weight:500;}
+.topbar-accn{font-family:var(--mono);font-size:12px;color:var(--tx2);display:none;margin-left:4px;}
+.main{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:168px;flex-shrink:0;border-right:1px solid var(--bd);background:var(--bg2);display:flex;flex-direction:column;padding:8px 0;overflow-y:auto;}
+.nav-group{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--tx3);padding:10px 14px 4px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:var(--tx2);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:background 0.1s,color 0.1s;border-left:2px solid transparent;}
+.nav-item:hover{background:var(--bg);color:var(--tx);}
+.nav-item.active{background:var(--bg);color:var(--teal);font-weight:500;border-left-color:var(--teal);}
+.nav-item i{font-size:16px;flex-shrink:0;}
+.nav-footer{margin-top:auto;padding:10px 14px;border-top:1px solid var(--bd);font-size:11px;color:var(--tx3);line-height:1.6;}
+.content{flex:1;overflow-y:auto;padding:20px;}
+.panel{display:none;max-width:920px;}
+.panel.active{display:block;}
+.page-title{font-size:17px;font-weight:600;margin-bottom:2px;}
+.page-sub{font-size:12px;color:var(--tx2);margin-bottom:18px;}
+.sec-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--tx2);margin:16px 0 8px;}
+.sec-lbl:first-child{margin-top:0;}
+.card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--r-lg);padding:16px;margin-bottom:14px;}
+.card-title{font-size:14px;font-weight:500;margin-bottom:10px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.row-between{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+label{display:block;font-size:12px;color:var(--tx2);margin-bottom:4px;margin-top:12px;}
+label:first-child{margin-top:0;}
+input[type=text],input[type=number],input[type=datetime-local],select,textarea{width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--bg2);color:var(--tx);font-family:var(--font);transition:border-color 0.15s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);}
+textarea{resize:vertical;min-height:64px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:13px;font-family:var(--font);border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--bg);color:var(--tx);cursor:pointer;transition:background 0.1s;white-space:nowrap;}
+.btn:hover{background:var(--bg2);}
+.btn-primary{background:var(--teal);color:#fff;border-color:var(--teal);}
+.btn-primary:hover{background:var(--teal-dk);}
+.btn-danger{background:var(--red-lt);color:var(--red);border-color:#F7C1C1;}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;}
+.b-green{background:var(--green-lt);color:var(--green);}
+.b-red{background:var(--red-lt);color:var(--red);}
+.b-amber{background:var(--amber-lt);color:var(--amber);}
+.b-blue{background:var(--blue-lt);color:var(--blue);}
+.b-gray{background:var(--bg2);color:var(--tx2);border:1px solid var(--bd);}
+.b-orange{background:var(--orange-lt);color:var(--orange);}
+.b-purple{background:var(--purple-lt);color:var(--purple);}
+hr{border:none;border-top:1px solid var(--bd);margin:14px 0;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{font-size:10px;font-weight:600;color:var(--tx2);text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);text-transform:uppercase;letter-spacing:0.05em;}
+.tbl td{padding:7px 8px;border-bottom:1px solid var(--bd);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover td{background:var(--bg2);}
+.tbl-sec td{background:var(--bg2)!important;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--tx2);padding:5px 8px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.stat{background:var(--bg);border:1px solid var(--bd);border-radius:var(--r-lg);padding:12px 14px;}
+.stat-n{font-size:24px;font-weight:600;line-height:1;}
+.stat-l{font-size:11px;color:var(--tx2);margin-top:4px;}
+.order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;}
+.oi{border:1px solid var(--bd);border-radius:var(--r-md);padding:8px 10px;cursor:pointer;font-size:12px;color:var(--tx2);transition:all 0.1s;user-select:none;}
+.oi:hover{background:var(--bg2);color:var(--tx);}
+.oi.sel{border-color:var(--teal);background:var(--teal-lt);color:var(--teal);font-weight:500;}
+.oi-name{font-weight:500;font-size:13px;margin-bottom:2px;}
+.oi-code{font-size:10px;font-family:var(--mono);opacity:0.65;}
+.accn-box{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:3px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-md);padding:10px 18px;display:inline-block;}
+.tube{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--bd);background:var(--bg);color:var(--tx2);}
+.tube-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.f-h{color:var(--red);font-weight:600;}
+.f-l{color:var(--blue);font-weight:600;}
+.f-crit{color:var(--red);font-weight:700;font-size:11px;background:var(--red-lt);padding:1px 6px;border-radius:4px;}
+.crit-banner{background:var(--red-lt);border:1px solid #F7C1C1;border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;font-size:13px;color:var(--red);}
+.crit-banner i{font-size:20px;flex-shrink:0;margin-top:1px;}
+.special-flag{background:var(--orange-lt);border:1px solid #FAC094;border-radius:var(--r-md);padding:8px 12px;font-size:12px;color:var(--orange);display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;}
+.special-flag i{flex-shrink:0;font-size:16px;margin-top:1px;}
+.ai-box{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-md);padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;min-height:60px;}
+.thinking{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);padding:8px 0;}
+.spin{width:14px;height:14px;border:2px solid var(--bd);border-top-color:var(--teal);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ua-row{display:grid;grid-template-columns:190px 1fr 150px 60px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);}
+.ua-row:last-child{border-bottom:none;}
+.ua-abn{background:var(--amber-lt);border-radius:var(--r-sm);}
+.micro-card{background:var(--bg2);border-radius:var(--r-md);padding:10px 12px;}
+.micro-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--tx2);margin-bottom:6px;}
+.rpt-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--bd);}
+.rpt-row:last-child{border-bottom:none;}
+.rpt-abn{color:var(--red);font-weight:500;}
+.rpt-sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--tx2);margin:12px 0 6px;}
+.lj-wrap{position:relative;height:210px;}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r-lg);padding:10px 16px;font-size:13px;z-index:9999;display:none;align-items:center;gap:8px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+#toast.show{display:flex;}
+#toast.t-ok{color:var(--teal);border-color:#9FE1CB;}
+#toast.t-err{color:var(--red);border-color:#F7C1C1;background:var(--red-lt);}
+.scan-box{border:2px dashed var(--bd2);border-radius:var(--r-md);padding:14px;text-align:center;color:var(--tx2);font-size:13px;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
+.scan-box:hover,.scan-box.active{border-color:var(--teal);background:var(--teal-lt);color:var(--teal);}
+.scan-box i{font-size:28px;display:block;margin-bottom:6px;}
+.workflow-bar{display:flex;gap:0;margin-bottom:18px;border:1px solid var(--bd);border-radius:var(--r-md);overflow:hidden;}
+.wf-step{flex:1;padding:8px 4px;font-size:11px;text-align:center;background:var(--bg2);color:var(--tx2);border-right:1px solid var(--bd);}
+.wf-step:last-child{border-right:none;}
+.wf-step.done{background:var(--green-lt);color:var(--green);}
+.wf-step.active{background:var(--teal);color:#fff;font-weight:600;}
+.info-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-lbl{width:160px;flex-shrink:0;color:var(--tx2);font-size:12px;}
+.info-val{color:var(--tx);font-weight:500;}
+@media(max-width:640px){
+  .sidebar{width:48px;}.nav-item span{display:none;}.nav-group{display:none;}
+  .stats{grid-template-columns:repeat(2,1fr);}.g2,.g3,.g4{grid-template-columns:1fr;}
+  .ua-row{grid-template-columns:1fr 1fr;}.workflow-bar{flex-wrap:wrap;}
+}
 </style>
 </head>
 <body>
-
 <div class="app">
   <header class="topbar">
-    <div class="topbar-logo">RD<span>Poly</span>LIS <small>Educational v1.1</small></div>
+    <div class="topbar-logo">RD<span>Poly</span>LIS <small>Educational v2.0</small></div>
     <div class="topbar-sep"></div>
-    <div class="topbar-pt">
-      <i class="ti ti-user" style="font-size:14px;"></i>
-      <span id="tb-name" style="color:var(--text-secondary);">No patient loaded</span>
-    </div>
+    <div class="topbar-pt"><i class="ti ti-user" style="font-size:14px;"></i><span id="tb-name" style="color:var(--tx2);">No patient loaded</span></div>
     <div class="topbar-accn" id="tb-accn"></div>
   </header>
-
   <div class="main">
     <nav class="sidebar">
-      <div class="nav-group-label">Workflow</div>
+      <div class="nav-group">Workflow</div>
       <button class="nav-item active" onclick="go('dashboard')" id="nav-dashboard"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></button>
       <button class="nav-item" onclick="go('patient')" id="nav-patient"><i class="ti ti-user-plus"></i><span>Patient Reg.</span></button>
       <button class="nav-item" onclick="go('order')" id="nav-order"><i class="ti ti-clipboard-list"></i><span>Order Entry</span></button>
+      <button class="nav-item" onclick="go('receiving')" id="nav-receiving"><i class="ti ti-package-import"></i><span>Receiving</span></button>
       <button class="nav-item" onclick="go('accession')" id="nav-accession"><i class="ti ti-test-pipe"></i><span>Accession</span></button>
       <button class="nav-item" onclick="go('results')" id="nav-results"><i class="ti ti-microscope"></i><span>Results Entry</span></button>
       <button class="nav-item" onclick="go('ua')" id="nav-ua"><i class="ti ti-droplet"></i><span>Urinalysis</span></button>
-      <div class="nav-group-label">Records</div>
+      <div class="nav-group">Records</div>
       <button class="nav-item" onclick="go('patientfile')" id="nav-patientfile"><i class="ti ti-folder-open"></i><span>Patient File</span></button>
-      <div class="nav-group-label">Quality</div>
+      <div class="nav-group">Quality</div>
       <button class="nav-item" onclick="go('qc')" id="nav-qc"><i class="ti ti-chart-line"></i><span>QC Module</span></button>
-      <div class="nav-footer">
-        <i class="ti ti-school"></i> RDP MLA Program<br>Educational use only
-      </div>
+      <div class="nav-footer"><i class="ti ti-school"></i> RDP MLA Program<br>Educational use only</div>
     </nav>
-
     <main class="content">
 
-      <!-- DASHBOARD -->
-      <div id="panel-dashboard" class="panel active">
-        <div class="page-title">Lab Dashboard</div>
-        <div class="page-sub">Red Deer Polytechnic · MLA Practicum Simulator</div>
+<!-- DASHBOARD -->
+<div id="panel-dashboard" class="panel active">
+  <div class="page-title">Lab Dashboard</div>
+  <div class="page-sub">Red Deer Polytechnic · MLA Practicum Simulator · APL ConnectCare</div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="d-pts">0</div><div class="stat-l">Patients</div></div>
+    <div class="stat"><div class="stat-n" id="d-pend">0</div><div class="stat-l">Pending</div></div>
+    <div class="stat"><div class="stat-n" id="d-crit">0</div><div class="stat-l" style="color:var(--red);">Critical Values</div></div>
+    <div class="stat"><div class="stat-n" id="d-done">0</div><div class="stat-l">Filed</div></div>
+  </div>
+  <div class="card">
+    <div class="row-between" style="margin-bottom:12px;">
+      <div class="card-title" style="margin:0;">Active Patients</div>
+      <button class="btn btn-primary" onclick="go('patient')"><i class="ti ti-plus"></i> New Patient</button>
+    </div>
+    <div id="pt-empty" style="text-align:center;padding:28px;color:var(--tx2);font-size:13px;">
+      <i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.4;"></i>
+      No patients registered. Generate an AI scenario below or register manually.
+    </div>
+    <table class="tbl" id="pt-tbl" style="display:none;">
+      <thead><tr><th>Accession</th><th>Patient</th><th>DOB / Sex</th><th>Ordering MD</th><th>Status</th><th></th></tr></thead>
+      <tbody id="pt-tbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">AI Patient Scenario Generator</div>
+    <div style="font-size:13px;color:var(--tx2);margin-bottom:12px;">Generate a realistic fictional Albertan patient case for classroom discussion.</div>
+    <div class="row" style="gap:8px;">
+      <select id="sc-type" style="flex:1;">
+        <option value="urinalysis" selected>Urinalysis</option>
+        <option value="hematology">Hematology (CBC)</option>
+        <option value="chemistry">Chemistry (BMP/CMP)</option>
+        <option value="coagulation">Coagulation</option>
+        <option value="microbiology">Microbiology</option>
+        <option value="transfusion medicine">Transfusion Medicine</option>
+        <option value="lipid panel">Lipid Panel</option>
+        <option value="thyroid">Thyroid Function</option>
+        <option value="random">Random / Surprise me</option>
+      </select>
+      <select id="sc-cx" style="width:auto;">
+        <option value="normal">Normal results</option>
+        <option value="abnormal" selected>Abnormal / pathologic</option>
+        <option value="critical">Critical values</option>
+      </select>
+      <button class="btn btn-primary" onclick="genScenario()"><i class="ti ti-robot"></i> Generate</button>
+    </div>
+    <div id="sc-think" class="thinking" style="display:none;"><div class="spin"></div> Generating patient scenario...</div>
+    <div id="sc-out" class="ai-box" style="display:none;margin-top:10px;"></div>
+    <div id="sc-load" style="display:none;margin-top:8px;">
+      <button class="btn btn-primary" onclick="loadScenario()"><i class="ti ti-transfer-in"></i> Load this patient into LIS</button>
+    </div>
+  </div>
+</div>
 
-        <div class="stats">
-          <div class="stat"><div class="stat-n" id="d-pts">0</div><div class="stat-l">Patients</div></div>
-          <div class="stat"><div class="stat-n" id="d-pend">0</div><div class="stat-l">Pending</div></div>
-          <div class="stat"><div class="stat-n" id="d-crit" style="">0</div><div class="stat-l" style="color:var(--red);">Critical Values</div></div>
-          <div class="stat"><div class="stat-n" id="d-done">0</div><div class="stat-l">Filed</div></div>
-        </div>
+<!-- PATIENT REG -->
+<div id="panel-patient" class="panel">
+  <div class="page-title">Patient Registration</div>
+  <div class="page-sub">APL Form 21302 — Demographics and ordering provider</div>
+  <div class="card">
+    <div class="sec-lbl">Patient Demographics</div>
+    <div class="g2">
+      <div><label>Last Name</label><input type="text" id="p-ln" placeholder="SMITH"></div>
+      <div><label>First Name</label><input type="text" id="p-fn" placeholder="Jane"></div>
+      <div><label>Date of Birth</label><input type="text" id="p-dob" placeholder="YYYY-MM-DD"></div>
+      <div><label>Sex</label><select id="p-sex"><option value="">Select...</option><option value="M">Male</option><option value="F">Female</option></select></div>
+      <div><label>Alberta Health Care Number</label><input type="text" id="p-hcn" placeholder="NNNN-NNNNN-NN"></div>
+      <div><label>Chart Number (if applicable)</label><input type="text" id="p-chart" placeholder="Optional"></div>
+    </div>
+    <div class="sec-lbl">Ordering Provider</div>
+    <div class="g2">
+      <div><label>Physician / Ordering Provider</label><input type="text" id="p-md" placeholder="Dr. Ordering Physician"></div>
+      <div><label>Location / Ward / Clinic</label><input type="text" id="p-ward" placeholder="ED / 3W / Outpatient"></div>
+    </div>
+    <div class="sec-lbl">Requisition Details</div>
+    <div class="g2">
+      <div><label>Requisition Date</label><input type="text" id="p-reqdate" placeholder="YYYY-MM-DD"></div>
+      <div><label>Priority</label><select id="p-priority"><option value="Routine">Routine</option><option value="Stat">STAT</option><option value="Urgent">Urgent</option><option value="Timed">Timed</option></select></div>
+    </div>
+    <label>Clinical Information / Reason for Testing</label>
+    <textarea id="p-notes" placeholder="Presenting complaint, ICD-10 code, relevant history..."></textarea>
+    <hr>
+    <div class="row">
+      <button class="btn btn-primary" onclick="regPt()"><i class="ti ti-user-check"></i> Register Patient</button>
+      <button class="btn" onclick="clearPtForm()"><i class="ti ti-x"></i> Clear</button>
+    </div>
+  </div>
+</div>
 
-        <div class="card">
-          <div class="row-between" style="margin-bottom:12px;">
-            <div class="card-title" style="margin:0;">Active Patients</div>
-            <button class="btn btn-primary" onclick="go('patient')"><i class="ti ti-plus"></i> New Patient</button>
-          </div>
-          <div id="pt-empty" style="text-align:center;padding:28px;color:var(--text-secondary);font-size:13px;">
-            <i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.4;"></i>
-            No patients registered. Generate an AI scenario below or register manually.
-          </div>
-          <table class="tbl" id="pt-tbl" style="display:none;">
-            <thead><tr><th>Accession</th><th>Patient</th><th>DOB / Sex</th><th>Ordering MD</th><th>Status</th><th></th></tr></thead>
-            <tbody id="pt-tbody"></tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <div class="card-title">AI Patient Scenario Generator</div>
-          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Generate a realistic fictional Albertan patient case with clinical history, suggested orders, and expected findings for classroom discussion.</div>
-          <div class="row" style="gap:8px;">
-            <select id="sc-type" style="flex:1;">
-              <option value="urinalysis" selected>Urinalysis</option>
-              <option value="hematology">Hematology (CBC)</option>
-              <option value="chemistry">Chemistry (BMP/CMP)</option>
-              <option value="coagulation">Coagulation</option>
-              <option value="microbiology">Microbiology</option>
-              <option value="blood bank">Blood Bank</option>
-              <option value="lipid panel">Lipid Panel</option>
-              <option value="thyroid">Thyroid Function</option>
-              <option value="random">Random / Surprise me</option>
-            </select>
-            <select id="sc-cx" style="width:auto;">
-              <option value="normal">Normal results</option>
-              <option value="abnormal" selected>Abnormal / pathologic</option>
-              <option value="critical">Critical values</option>
-            </select>
-            <button class="btn btn-primary" onclick="genScenario()"><i class="ti ti-robot"></i> Generate</button>
-          </div>
-          <div id="sc-think" class="thinking" style="display:none;"><div class="spin"></div> Generating patient scenario...</div>
-          <div id="sc-out" class="ai-box" style="display:none;margin-top:10px;"></div>
-          <div id="sc-load" style="display:none;margin-top:8px;">
-            <button class="btn btn-primary" onclick="loadScenario()"><i class="ti ti-transfer-in"></i> Load this patient into LIS</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- PATIENT REG -->
-      <div id="panel-patient" class="panel">
-        <div class="page-title">Patient Registration</div>
-        <div class="page-sub">Demographics and ordering provider</div>
-        <div class="card">
-          <div class="section-label">Demographics</div>
-          <div class="g2">
-            <div><label>Last Name</label><input type="text" id="p-ln" placeholder="Smith"></div>
-            <div><label>First Name</label><input type="text" id="p-fn" placeholder="Jane"></div>
-            <div><label>Date of Birth</label><input type="text" id="p-dob" placeholder="YYYY-MM-DD"></div>
-            <div><label>Sex Assigned at Birth</label>
-              <select id="p-sex"><option value="">Select...</option><option value="M">Male</option><option value="F">Female</option></select>
-            </div>
-            <div><label>Alberta Health Card</label><input type="text" id="p-hcn" placeholder="NNNN-NNNNN-NN"></div>
-            <div><label>Collection Date / Time</label><input type="text" id="p-doc" placeholder="YYYY-MM-DD HH:MM"></div>
-          </div>
-          <div class="section-label">Ordering Provider</div>
-          <div class="g2">
-            <div><label>Physician</label><input type="text" id="p-md" placeholder="Dr. Ordering Physician"></div>
-            <div><label>Location / Ward</label><input type="text" id="p-ward" placeholder="ED / 3W / Outpatient"></div>
-          </div>
-          <label>Clinical Notes / Reason for Testing</label>
-          <textarea id="p-notes" placeholder="Presenting complaint or ICD-10 code..."></textarea>
-          <hr>
-          <div class="row">
-            <button class="btn btn-primary" onclick="regPt()"><i class="ti ti-user-check"></i> Register Patient</button>
-            <button class="btn" onclick="clearPtForm()"><i class="ti ti-x"></i> Clear Form</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ORDER ENTRY -->
-      <div id="panel-order" class="panel">
-        <div class="page-title">Order Entry</div>
-        <div class="page-sub">Select tests for the active patient</div>
-        <div id="ord-nopt" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">Register or select a patient first.</div>
-        <div id="ord-form" style="display:none;">
-          <div class="card">
-            <div class="row-between">
-              <span style="font-size:13px;color:var(--text-secondary);">Patient: <strong id="ord-ptname" style="color:var(--text-primary);font-weight:500;"></strong></span>
-              <span class="badge b-blue" id="ord-count">0 tests selected</span>
-            </div>
-          </div>
-          <div class="card">
-            <div class="section-label">Hematology</div><div class="order-grid" id="og-heme"></div>
-            <div class="section-label">Chemistry</div><div class="order-grid" id="og-chem"></div>
-            <div class="section-label">Coagulation</div><div class="order-grid" id="og-coag"></div>
-            <div class="section-label">Urinalysis</div><div class="order-grid" id="og-ua"></div>
-            <div class="section-label">Microbiology</div><div class="order-grid" id="og-micro"></div>
-            <div class="section-label">Blood Bank</div><div class="order-grid" id="og-bb"></div>
-            <div class="section-label">Endocrine / Other</div><div class="order-grid" id="og-other"></div>
-          </div>
-          <div class="card">
-            <div class="row">
-              <button class="btn btn-primary" onclick="submitOrder()"><i class="ti ti-send"></i> Submit Order</button>
-              <button class="btn" onclick="clearOrders()"><i class="ti ti-x"></i> Clear Selection</button>
-            </div>
-          </div>
+<!-- ORDER ENTRY -->
+<div id="panel-order" class="panel">
+  <div class="page-title">Order Entry</div>
+  <div class="page-sub">APL General Laboratory Requisition (Form 21302)</div>
+  <div id="ord-nopt" class="card" style="text-align:center;padding:20px;color:var(--tx2);">Register or select a patient first.</div>
+  <div id="ord-form" style="display:none;">
+    <div class="card">
+      <div class="row-between">
+        <span style="font-size:13px;color:var(--tx2);">Patient: <strong id="ord-ptname" style="color:var(--tx);font-weight:500;"></strong></span>
+        <div class="row" style="gap:8px;">
+          <span class="badge b-blue" id="ord-count">0 tests selected</span>
+          <span id="ord-priority-badge" class="badge b-gray">Routine</span>
         </div>
       </div>
+    </div>
+    <div class="card">
+      <div class="sec-lbl">Hematology / Coagulation</div><div class="order-grid" id="og-heme"></div>
+      <div class="sec-lbl">General Chemistry</div><div class="order-grid" id="og-chem"></div>
+      <div class="sec-lbl">Special Chemistry</div><div class="order-grid" id="og-special"></div>
+      <div class="sec-lbl">Endocrine</div><div class="order-grid" id="og-endo"></div>
+      <div class="sec-lbl">Urinalysis</div><div class="order-grid" id="og-ua"></div>
+      <div class="sec-lbl">Microbiology</div><div class="order-grid" id="og-micro"></div>
+      <div class="sec-lbl">Transfusion Medicine</div><div class="order-grid" id="og-tm"></div>
+    </div>
+    <div class="card"><div class="row">
+      <button class="btn btn-primary" onclick="submitOrder()"><i class="ti ti-send"></i> Submit Order</button>
+      <button class="btn" onclick="clearOrders()"><i class="ti ti-x"></i> Clear</button>
+    </div></div>
+  </div>
+</div>
 
-      <!-- ACCESSION -->
-      <div id="panel-accession" class="panel">
-        <div class="page-title">Specimen Accession</div>
-        <div class="page-sub">Assign accession number and verify tube requirements</div>
-        <div id="acc-none" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">No pending orders. Submit an order first.</div>
-        <div id="acc-form" style="display:none;">
-          <div class="card">
-            <div class="row-between" style="margin-bottom:10px;">
-              <div class="card-title" style="margin:0;">Accession Number</div>
-              <button class="btn btn-sm" onclick="regenAccn()"><i class="ti ti-refresh"></i> Regenerate</button>
-            </div>
-            <div class="accn-box" id="accn-num">---</div>
-            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">Auto-generated · <span id="accn-ts"></span></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Required Specimen Tubes</div>
-            <div id="tube-list" class="row" style="gap:8px;flex-wrap:wrap;"></div>
-          </div>
-          <div class="card">
-            <table class="tbl">
-              <thead><tr><th>Test</th><th>Code</th><th>Tube</th><th>TAT</th></tr></thead>
-              <tbody id="acc-tbody"></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <button class="btn btn-primary" onclick="confirmAccn()"><i class="ti ti-check"></i> Confirm & Label Specimens</button>
-          </div>
+<!-- RECEIVING -->
+<div id="panel-receiving" class="panel">
+  <div class="page-title">Specimen Receiving</div>
+  <div class="page-sub">Log specimen receipt, collection details, and collector information</div>
+  <div id="recv-nopt" class="card" style="text-align:center;padding:20px;color:var(--tx2);">
+    <i class="ti ti-package-import" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.4;"></i>
+    Submit an order before receiving specimens.
+  </div>
+  <div id="recv-form" style="display:none;">
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-scan" style="margin-right:6px;"></i>Scan Requisition Barcode</div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;">Click the scan area then scan the barcode on the APL requisition, or enter the requisition number manually below.</div>
+      <div class="scan-box" id="scan-area" onclick="activateScan()" tabindex="0">
+        <i class="ti ti-barcode"></i>
+        <div id="scan-status">Click here, then scan barcode</div>
+        <div style="font-size:11px;margin-top:4px;opacity:0.7;">Scanner input will be captured automatically</div>
+      </div>
+      <input type="text" id="scan-input" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;" onchange="processScan(this.value)">
+      <div style="margin-top:10px;">
+        <label>Or enter Requisition / Chart Number manually</label>
+        <div class="row" style="gap:8px;">
+          <input type="text" id="recv-reqnum" placeholder="Requisition number" style="flex:1;">
+          <button class="btn" onclick="lookupReq()"><i class="ti ti-search"></i> Look Up</button>
         </div>
       </div>
+    </div>
 
-      <!-- RESULTS ENTRY -->
-      <div id="panel-results" class="panel">
-        <div class="page-title">Results Entry & Verification</div>
-        <div class="page-sub">Enter results, review reference ranges, flag abnormals</div>
-        <div id="res-none" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">Confirm accession before entering results.</div>
-        <div id="res-form" style="display:none;">
-          <div id="crit-area"></div>
-          <div class="card">
-            <div class="row-between">
-              <span style="font-weight:500;" id="res-ptlbl"></span>
-              <div class="row" style="gap:6px;">
-                <span class="badge b-gray" id="res-badge">Preliminary</span>
-                <button class="btn btn-amber" onclick="aiInterpret()"><i class="ti ti-robot"></i> AI Interpret</button>
-                <button class="btn btn-primary" onclick="verifyResults()"><i class="ti ti-check"></i> Verify & Release</button>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <table class="tbl">
-              <thead><tr><th>Test / Component</th><th>Result</th><th>Units</th><th>Reference Range</th><th>Flag</th></tr></thead>
-              <tbody id="res-tbody"></tbody>
-            </table>
-          </div>
-          <div id="ai-area" style="display:none;" class="card">
-            <div style="font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-robot"></i> AI Clinical Interpretation</div>
-            <div id="ai-think" class="thinking" style="display:none;"><div class="spin"></div> Analyzing results...</div>
-            <div id="ai-text" class="ai-box" style="display:none;"></div>
-          </div>
+    <div class="card">
+      <div class="card-title">Patient & Order Confirmation</div>
+      <div id="recv-pt-info" style="background:var(--bg2);border-radius:var(--r-md);padding:12px;margin-bottom:0;">
+        <div class="info-row"><span class="info-lbl">Patient</span><span class="info-val" id="recv-ptname">—</span></div>
+        <div class="info-row"><span class="info-lbl">Date of Birth</span><span class="info-val" id="recv-dob">—</span></div>
+        <div class="info-row"><span class="info-lbl">AHC Number</span><span class="info-val" id="recv-hcn">—</span></div>
+        <div class="info-row"><span class="info-lbl">Ordering MD</span><span class="info-val" id="recv-md">—</span></div>
+        <div class="info-row"><span class="info-lbl">Priority</span><span class="info-val" id="recv-priority">—</span></div>
+        <div class="info-row"><span class="info-lbl">Tests Ordered</span><span class="info-val" id="recv-tests">—</span></div>
+      </div>
+    </div>
+
+    <div id="special-flags-area"></div>
+
+    <div class="card">
+      <div class="card-title">Collection Information</div>
+      <div class="g2">
+        <div>
+          <label>Collection Date &amp; Time</label>
+          <input type="datetime-local" id="recv-colldt">
+        </div>
+        <div>
+          <label>Collector ID / Initials</label>
+          <input type="text" id="recv-collector" placeholder="e.g. MLA01 or JM">
+        </div>
+        <div>
+          <label>Collection Site</label>
+          <select id="recv-site">
+            <option value="">Select...</option>
+            <option>Antecubital fossa — left</option>
+            <option>Antecubital fossa — right</option>
+            <option>Dorsal hand vein — left</option>
+            <option>Dorsal hand vein — right</option>
+            <option>Forearm vein — left</option>
+            <option>Forearm vein — right</option>
+            <option>Capillary — fingerstick</option>
+            <option>Capillary — heelstick</option>
+            <option>Central line</option>
+            <option>PICC line</option>
+            <option>Mid-stream urine</option>
+            <option>Catheter urine</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label>Number of Attempts</label>
+          <select id="recv-attempts">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3 (supervisor notified)</option>
+          </select>
         </div>
       </div>
+      <label>Specimen Condition / Notes</label>
+      <textarea id="recv-condition" placeholder="e.g. Haemolysed, lipemic, icteric, clotted, insufficient volume, delayed transport..."></textarea>
+    </div>
 
-      <!-- URINALYSIS -->
-      <div id="panel-ua" class="panel">
-        <div class="page-title">Urinalysis — Results Entry</div>
-        <div class="page-sub">Macroscopic, chemical (dipstick), and microscopic examination</div>
-        <div id="ua-none" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">
-          <i class="ti ti-droplet" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.4;"></i>
-          Register a patient and confirm accession before entering UA results.
+    <div class="card">
+      <div class="card-title">Received By</div>
+      <div class="g2">
+        <div>
+          <label>Received Date &amp; Time</label>
+          <input type="datetime-local" id="recv-recvdt">
         </div>
-        <div id="ua-form" style="display:none;">
-          <div class="card">
-            <div class="row-between">
-              <span style="font-weight:500;" id="ua-ptlbl"></span>
-              <div class="row" style="gap:6px;">
-                <span class="badge b-gray" id="ua-badge">Not reported</span>
-                <button class="btn btn-amber" onclick="aiUA()"><i class="ti ti-robot"></i> AI Interpret</button>
-                <button class="btn btn-primary" onclick="reportUA()"><i class="ti ti-file-check"></i> Report to Patient File</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title"><i class="ti ti-eye" style="margin-right:4px;"></i>Macroscopic Examination</div>
-            <div class="ua-row">
-              <div class="ua-lbl">Colour</div>
-              <select id="ua-colour" onchange="flagSel(this,'ua-colour-flag',['Yellow','Pale Yellow','Dark Yellow'])">
-                <option value="">Select...</option>
-                <option>Pale Yellow</option><option>Yellow</option><option>Dark Yellow</option>
-                <option>Amber</option><option>Orange</option><option>Red / Pink</option>
-                <option>Brown</option><option>Colourless</option><option>Green</option>
-              </select>
-              <div class="ua-ref">Normal: Yellow / Pale Yellow</div>
-              <div class="ua-flag" id="ua-colour-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Clarity / Appearance</div>
-              <select id="ua-clarity" onchange="flagSel(this,'ua-clarity-flag',['Clear','Slightly Hazy'])">
-                <option value="">Select...</option>
-                <option>Clear</option><option>Slightly Hazy</option><option>Hazy</option>
-                <option>Cloudy</option><option>Turbid</option>
-              </select>
-              <div class="ua-ref">Normal: Clear</div>
-              <div class="ua-flag" id="ua-clarity-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Odour</div>
-              <select id="ua-odour">
-                <option value="">Select...</option>
-                <option>Normal / Inoffensive</option><option>Ammoniacal</option>
-                <option>Foul / Offensive</option><option>Sweet / Fruity (ketones)</option><option>Fishy</option>
-              </select>
-              <div class="ua-ref">Normal: Inoffensive</div>
-              <div class="ua-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Volume (mL)</div>
-              <input type="number" id="ua-vol" placeholder="e.g. 35" min="0" max="2000" style="width:120px;">
-              <div class="ua-ref">Adequate: ≥ 12 mL</div>
-              <div class="ua-flag"></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title"><i class="ti ti-test-pipe-2" style="margin-right:4px;"></i>Chemical Examination (Dipstick)</div>
-            <div class="ua-row">
-              <div class="ua-lbl">pH</div>
-              <select id="ua-ph" onchange="flagSelNum(this,'ua-ph-flag',4.5,8.5)">
-                <option value="">Select...</option>
-                <option value="5.0">5.0</option><option value="5.5">5.5</option><option value="6.0">6.0</option>
-                <option value="6.5">6.5</option><option value="7.0">7.0</option><option value="7.5">7.5</option>
-                <option value="8.0">8.0</option><option value="8.5">8.5</option><option value="9.0">9.0</option>
-              </select>
-              <div class="ua-ref">4.5 – 8.5</div>
-              <div class="ua-flag" id="ua-ph-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Specific Gravity</div>
-              <select id="ua-sg" onchange="flagSelNum(this,'ua-sg-flag',1.003,1.030)">
-                <option value="">Select...</option>
-                <option value="1.001">1.001</option><option value="1.005">1.005</option>
-                <option value="1.010">1.010</option><option value="1.015">1.015</option>
-                <option value="1.020">1.020</option><option value="1.025">1.025</option>
-                <option value="1.030">1.030</option><option value="1.035">1.035</option>
-              </select>
-              <div class="ua-ref">1.003 – 1.030</div>
-              <div class="ua-flag" id="ua-sg-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Glucose</div>
-              <select id="ua-glucose" onchange="flagSel(this,'ua-glucose-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Trace</option><option>1+ (~14 mmol/L)</option>
-                <option>2+ (~28 mmol/L)</option><option>3+ (~56 mmol/L)</option><option>4+ (≥111 mmol/L)</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-glucose-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Protein</div>
-              <select id="ua-protein" onchange="flagSel(this,'ua-protein-flag',['Negative','Trace'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Trace</option><option>1+ (~0.3 g/L)</option>
-                <option>2+ (~1 g/L)</option><option>3+ (~3 g/L)</option><option>4+ (≥20 g/L)</option>
-              </select>
-              <div class="ua-ref">Negative / Trace</div>
-              <div class="ua-flag" id="ua-protein-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Blood / Hemoglobin</div>
-              <select id="ua-blood" onchange="flagSel(this,'ua-blood-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Trace — non-hemolyzed</option>
-                <option>Trace — hemolyzed</option><option>1+</option><option>2+</option><option>3+</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-blood-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Leukocyte Esterase</div>
-              <select id="ua-le" onchange="flagSel(this,'ua-le-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Trace</option>
-                <option>1+ (moderate)</option><option>2+ (large)</option><option>3+ (very large)</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-le-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Nitrite</div>
-              <select id="ua-nitrite" onchange="flagSel(this,'ua-nitrite-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Positive</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-nitrite-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Ketones</div>
-              <select id="ua-ketones" onchange="flagSel(this,'ua-ketones-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>Trace</option>
-                <option>1+ (~1.5 mmol/L)</option><option>2+ (~4 mmol/L)</option><option>3+ (~8 mmol/L)</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-ketones-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Bilirubin</div>
-              <select id="ua-bili" onchange="flagSel(this,'ua-bili-flag',['Negative'])">
-                <option value="">Select...</option>
-                <option>Negative</option><option>1+</option><option>2+</option><option>3+</option>
-              </select>
-              <div class="ua-ref">Negative</div>
-              <div class="ua-flag" id="ua-bili-flag"></div>
-            </div>
-            <div class="ua-row">
-              <div class="ua-lbl">Urobilinogen</div>
-              <select id="ua-urobili" onchange="flagSel(this,'ua-urobili-flag',['Normal','0.2 EU/dL'])">
-                <option value="">Select...</option>
-                <option>Normal</option><option>0.2 EU/dL</option><option>1 EU/dL</option>
-                <option>2 EU/dL</option><option>4 EU/dL</option><option>8 EU/dL</option>
-              </select>
-              <div class="ua-ref">Normal – 1 EU/dL</div>
-              <div class="ua-flag" id="ua-urobili-flag"></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title"><i class="ti ti-microscope" style="margin-right:4px;"></i>Microscopic Examination <span style="font-size:12px;font-weight:400;color:var(--text-secondary);">(per HPF / LPF)</span></div>
-            <div class="g3" style="margin-bottom:10px;">
-              <div class="micro-card">
-                <div class="micro-lbl">RBCs / HPF</div>
-                <select id="ua-rbc" style="margin-bottom:4px;" onchange="flagMicro(this,'ua-rbc-flag',['6-10','11-20','21-50','>50','TNTC'])">
-                  <option value="">Select...</option>
-                  <option>0</option><option>0–2</option><option>3–5</option><option>6-10</option>
-                  <option>11-20</option><option>21-50</option><option>>50</option><option>TNTC</option>
-                </select>
-                <div style="font-size:11px;color:var(--text-tertiary);">Normal: 0–2/HPF</div>
-                <span id="ua-rbc-flag" style="font-size:12px;"></span>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">WBCs / HPF</div>
-                <select id="ua-wbc" style="margin-bottom:4px;" onchange="flagMicro(this,'ua-wbc-flag',['6-10','11-20','21-50','>50','TNTC'])">
-                  <option value="">Select...</option>
-                  <option>0</option><option>0–5</option><option>6-10</option>
-                  <option>11-20</option><option>21-50</option><option>>50</option><option>TNTC</option>
-                </select>
-                <div style="font-size:11px;color:var(--text-tertiary);">Normal: 0–5/HPF</div>
-                <span id="ua-wbc-flag" style="font-size:12px;"></span>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">Epithelial Cells / HPF</div>
-                <select id="ua-epi">
-                  <option value="">Select...</option>
-                  <option>None</option><option>Rare</option><option>Few</option>
-                  <option>Moderate</option><option>Many</option>
-                </select>
-                <div style="font-size:11px;color:var(--text-tertiary);">Squamous / transitional</div>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">Casts / LPF</div>
-                <select id="ua-casts" style="margin-bottom:4px;" onchange="flagMicro(this,'ua-casts-flag',['Granular casts','Waxy casts','RBC casts','WBC casts','Fatty casts','Broad/renal failure casts'])">
-                  <option value="">Select...</option>
-                  <option>None</option><option>Rare hyaline</option><option>Granular casts</option>
-                  <option>Waxy casts</option><option>RBC casts</option><option>WBC casts</option>
-                  <option>Fatty casts</option><option>Broad/renal failure casts</option>
-                </select>
-                <div style="font-size:11px;color:var(--text-tertiary);">Normal: None / rare hyaline</div>
-                <span id="ua-casts-flag" style="font-size:12px;"></span>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">Bacteria</div>
-                <select id="ua-bacteria" style="margin-bottom:4px;" onchange="flagMicro(this,'ua-bact-flag',['Rare','Few','Moderate','Many'])">
-                  <option value="">Select...</option>
-                  <option>None</option><option>Rare</option><option>Few</option>
-                  <option>Moderate</option><option>Many</option>
-                </select>
-                <div style="font-size:11px;color:var(--text-tertiary);">Normal: None</div>
-                <span id="ua-bact-flag" style="font-size:12px;"></span>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">Crystals</div>
-                <select id="ua-crystals">
-                  <option value="">Select...</option>
-                  <option>None</option><option>Amorphous urates</option><option>Calcium oxalate</option>
-                  <option>Triple phosphate / struvite</option><option>Uric acid</option>
-                  <option>Calcium phosphate</option><option>Cystine</option>
-                </select>
-              </div>
-              <div class="micro-card">
-                <div class="micro-lbl">Yeast</div>
-                <select id="ua-yeast" style="margin-bottom:4px;" onchange="flagMicro(this,'ua-yeast-flag',['Few','Moderate','Many'])">
-                  <option value="">Select...</option>
-                  <option>None</option><option>Few</option><option>Moderate</option><option>Many</option>
-                </select>
-                <span id="ua-yeast-flag" style="font-size:12px;"></span>
-              </div>
-              <div class="micro-card" style="grid-column:span 2;">
-                <div class="micro-lbl">Comment / Other Findings</div>
-                <textarea id="ua-comment" placeholder="Mucus threads, sperm, parasite ova, specimen quality, artefacts..." style="min-height:44px;font-size:12px;"></textarea>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="g2">
-              <div><label>Technologist / Initials</label><input type="text" id="ua-tech" placeholder="MLA Student initials"></div>
-              <div><label>Instrument / Method</label><input type="text" id="ua-instr" placeholder="e.g. Sysmex UF-5000, Manual microscopy"></div>
-            </div>
-            <div id="ua-ai-area" style="display:none;margin-top:14px;">
-              <div style="font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-robot"></i> AI Interpretation</div>
-              <div id="ua-ai-think" class="thinking" style="display:none;"><div class="spin"></div> Analyzing UA findings...</div>
-              <div id="ua-ai-text" class="ai-box" style="display:none;"></div>
-            </div>
-          </div>
+        <div>
+          <label>Received By (Lab Staff ID)</label>
+          <input type="text" id="recv-recvby" placeholder="e.g. MLA02 or initials">
         </div>
       </div>
+    </div>
 
-      <!-- PATIENT FILE -->
-      <div id="panel-patientfile" class="panel">
-        <div class="page-title">Patient File</div>
-        <div class="page-sub">Reported results and filed documents</div>
-        <div id="file-none" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">No patient selected.</div>
-        <div id="file-content" style="display:none;">
-          <div class="card">
-            <div class="row-between">
-              <div>
-                <div style="font-size:16px;font-weight:600;" id="file-ptname"></div>
-                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="file-ptmeta"></div>
-              </div>
-              <div style="text-align:right;font-size:12px;color:var(--text-secondary);" id="file-ptaccn"></div>
-            </div>
-          </div>
-          <div id="file-empty" class="card" style="text-align:center;padding:20px;color:var(--text-secondary);">No results filed yet.</div>
-          <div id="file-ua" style="display:none;" class="card">
-            <div class="row-between" style="margin-bottom:12px;">
-              <div><span style="font-weight:500;">Urinalysis Report</span> <span class="badge b-green" style="margin-left:6px;">Filed</span></div>
-              <div style="font-size:11px;color:var(--text-secondary);" id="file-ua-ts"></div>
-            </div>
-            <div id="file-ua-body"></div>
-          </div>
-          <div id="file-results" style="display:none;" class="card">
-            <div class="row-between" style="margin-bottom:12px;">
-              <div><span style="font-weight:500;">Laboratory Results</span> <span class="badge b-green" style="margin-left:6px;">Verified</span></div>
-              <div style="font-size:11px;color:var(--text-secondary);" id="file-res-ts"></div>
-            </div>
-            <div id="file-results-body"></div>
-          </div>
+    <div class="card">
+      <button class="btn btn-primary" onclick="confirmReceiving()"><i class="ti ti-check"></i> Confirm Receipt &amp; Proceed to Accession</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCESSION -->
+<div id="panel-accession" class="panel">
+  <div class="page-title">Specimen Accession</div>
+  <div class="page-sub">Assign ConnectCare-format accession numbers and verify tube requirements</div>
+  <div id="acc-none" class="card" style="text-align:center;padding:20px;color:var(--tx2);">Complete specimen receiving before accession.</div>
+  <div id="acc-form" style="display:none;">
+
+    <div class="card">
+      <div class="card-title">Collection Summary (from Receiving)</div>
+      <div style="background:var(--bg2);border-radius:var(--r-md);padding:12px;">
+        <div class="info-row"><span class="info-lbl">Patient</span><span class="info-val" id="acc-ptname">—</span></div>
+        <div class="info-row"><span class="info-lbl">Collection Date/Time</span><span class="info-val" id="acc-colldt">—</span></div>
+        <div class="info-row"><span class="info-lbl">Collector ID</span><span class="info-val" id="acc-collector">—</span></div>
+        <div class="info-row"><span class="info-lbl">Collection Site</span><span class="info-val" id="acc-site">—</span></div>
+        <div class="info-row"><span class="info-lbl">Received By</span><span class="info-val" id="acc-recvby">—</span></div>
+        <div class="info-row"><span class="info-lbl">Specimen Condition</span><span class="info-val" id="acc-condition">—</span></div>
+      </div>
+    </div>
+
+    <div id="special-flags-area-acc"></div>
+
+    <div class="card">
+      <div class="card-title">Department Accession Numbers</div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:12px;">Format: YY · RD · Julian Date · Dept Code · 5-digit sequence (resets daily per department)</div>
+      <div id="accn-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Required Specimen Tubes</div>
+      <div id="tube-list" class="row" style="gap:8px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>Test</th><th>Code</th><th>Department</th><th>Tube</th><th>TAT</th><th>Special Requirements</th></tr></thead>
+        <tbody id="acc-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-primary" onclick="confirmAccn()"><i class="ti ti-check"></i> Confirm &amp; Label Specimens</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS ENTRY -->
+<div id="panel-results" class="panel">
+  <div class="page-title">Results Entry &amp; Verification</div>
+  <div class="page-sub">Enter results, review reference ranges, flag abnormals</div>
+  <div id="res-none" class="card" style="text-align:center;padding:20px;color:var(--tx2);">Confirm accession before entering results.</div>
+  <div id="res-form" style="display:none;">
+    <div id="crit-area"></div>
+    <div class="card">
+      <div class="row-between">
+        <span style="font-weight:500;" id="res-ptlbl"></span>
+        <div class="row" style="gap:6px;">
+          <span class="badge b-gray" id="res-badge">Preliminary</span>
+          <button class="btn btn-primary" onclick="verifyResults()"><i class="ti ti-check"></i> Verify &amp; Release</button>
         </div>
       </div>
+    </div>
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>Test / Component</th><th>Result</th><th>Units</th><th>Reference Range</th><th>Flag</th></tr></thead>
+        <tbody id="res-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-      <!-- QC -->
-      <div id="panel-qc" class="panel">
-        <div class="page-title">Quality Control</div>
-        <div class="page-sub">Levey-Jennings charts and Westgard rule checking</div>
-        <div class="g2">
-          <div class="card">
-            <div class="card-title">QC Configuration</div>
-            <label>Analyte</label>
-            <select id="qc-analyte" onchange="initQC()">
-              <option value="glucose">Glucose (mmol/L)</option>
-              <option value="sodium">Sodium (mmol/L)</option>
-              <option value="hemoglobin">Hemoglobin (g/L)</option>
-              <option value="potassium">Potassium (mmol/L)</option>
-              <option value="creatinine">Creatinine (µmol/L)</option>
-              <option value="wbc">WBC (×10⁹/L)</option>
-            </select>
-            <label>Control Level</label>
-            <select id="qc-level"><option value="1">Level 1 — Normal</option><option value="2">Level 2 — Abnormal</option></select>
-            <label>Enter QC Result</label>
-            <div class="row" style="gap:8px;margin-top:2px;">
-              <input type="number" id="qc-val" placeholder="value" step="0.01" style="flex:1;">
-              <button class="btn btn-primary" onclick="addQC()"><i class="ti ti-plus"></i> Add</button>
-            </div>
-            <hr>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.9;">
-              Mean: <strong id="qc-mean">—</strong><br>
-              ±1 SD: <strong id="qc-1sd">—</strong><br>
-              ±2 SD: <strong id="qc-2sd">—</strong><br>
-              ±3 SD: <strong id="qc-3sd">—</strong>
-            </div>
-            <hr>
-            <div class="row">
-              <button class="btn" onclick="simQC()"><i class="ti ti-wand"></i> Simulate 20 pts</button>
-              <button class="btn btn-danger" onclick="clearQC()"><i class="ti ti-trash"></i> Clear</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="row-between" style="margin-bottom:8px;">
-              <div class="card-title" style="margin:0;">Levey-Jennings Chart</div>
-              <span class="badge b-gray" id="qc-badge">Westgard Rules</span>
-            </div>
-            <div class="lj-wrap"><canvas id="lj-canvas"></canvas></div>
-            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">
-              <span style="color:var(--red);">▲ Rule violation</span> &nbsp;
-              <span style="color:var(--amber);">● Warning</span> &nbsp;
-              <span style="color:var(--teal);">● In-control</span>
-            </div>
-            <div id="qc-violations" style="margin-top:8px;font-size:12px;"></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">QC Data Log</div>
-          <table class="tbl">
-            <thead><tr><th>#</th><th>Time</th><th>Analyte</th><th>Level</th><th>Result</th><th>Target</th><th>Z-score</th><th>Status</th></tr></thead>
-            <tbody id="qc-log"></tbody>
-          </table>
+<!-- URINALYSIS -->
+<div id="panel-ua" class="panel">
+  <div class="page-title">Urinalysis — Results Entry</div>
+  <div class="page-sub">Macroscopic, chemical (dipstick), and microscopic examination</div>
+  <div id="ua-none" class="card" style="text-align:center;padding:20px;color:var(--tx2);">
+    <i class="ti ti-droplet" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.4;"></i>
+    Confirm accession before entering UA results.
+  </div>
+  <div id="ua-form" style="display:none;">
+    <div class="card">
+      <div class="row-between">
+        <span style="font-weight:500;" id="ua-ptlbl"></span>
+        <div class="row" style="gap:6px;">
+          <span class="badge b-gray" id="ua-badge">Not reported</span>
+          <button class="btn btn-primary" onclick="reportUA()"><i class="ti ti-file-check"></i> Report to Patient File</button>
         </div>
       </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-eye" style="margin-right:4px;"></i>Macroscopic Examination</div>
+      <div class="ua-row"><div>Colour</div><select id="ua-colour" onchange="flagSel(this,'ua-colour-flag',['Yellow','Pale Yellow','Dark Yellow'])"><option value="">Select...</option><option>Pale Yellow</option><option>Yellow</option><option>Dark Yellow</option><option>Amber</option><option>Orange</option><option>Red / Pink</option><option>Brown</option><option>Colourless</option><option>Green</option></select><div style="font-size:11px;color:var(--tx3);">Normal: Yellow</div><div id="ua-colour-flag"></div></div>
+      <div class="ua-row"><div>Clarity</div><select id="ua-clarity" onchange="flagSel(this,'ua-clarity-flag',['Clear','Slightly Hazy'])"><option value="">Select...</option><option>Clear</option><option>Slightly Hazy</option><option>Hazy</option><option>Cloudy</option><option>Turbid</option></select><div style="font-size:11px;color:var(--tx3);">Normal: Clear</div><div id="ua-clarity-flag"></div></div>
+      <div class="ua-row"><div>Odour</div><select id="ua-odour"><option value="">Select...</option><option>Normal / Inoffensive</option><option>Ammoniacal</option><option>Foul / Offensive</option><option>Sweet / Fruity (ketones)</option><option>Fishy</option></select><div style="font-size:11px;color:var(--tx3);">Normal: Inoffensive</div><div></div></div>
+      <div class="ua-row"><div>Volume (mL)</div><input type="number" id="ua-vol" placeholder="e.g. 35" style="width:120px;"><div style="font-size:11px;color:var(--tx3);">Adequate: ≥12 mL</div><div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-test-pipe-2" style="margin-right:4px;"></i>Chemical Examination (Dipstick)</div>
+      <div class="ua-row"><div>pH</div><select id="ua-ph" onchange="flagSelNum(this,'ua-ph-flag',4.5,8.5)"><option value="">Select...</option><option value="5.0">5.0</option><option value="5.5">5.5</option><option value="6.0">6.0</option><option value="6.5">6.5</option><option value="7.0">7.0</option><option value="7.5">7.5</option><option value="8.0">8.0</option><option value="8.5">8.5</option><option value="9.0">9.0</option></select><div style="font-size:11px;color:var(--tx3);">4.5 – 8.5</div><div id="ua-ph-flag"></div></div>
+      <div class="ua-row"><div>Specific Gravity</div><select id="ua-sg" onchange="flagSelNum(this,'ua-sg-flag',1.003,1.030)"><option value="">Select...</option><option value="1.001">1.001</option><option value="1.005">1.005</option><option value="1.010">1.010</option><option value="1.015">1.015</option><option value="1.020">1.020</option><option value="1.025">1.025</option><option value="1.030">1.030</option><option value="1.035">1.035</option></select><div style="font-size:11px;color:var(--tx3);">1.003 – 1.030</div><div id="ua-sg-flag"></div></div>
+      <div class="ua-row"><div>Glucose</div><select id="ua-glucose" onchange="flagSel(this,'ua-glucose-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>Trace</option><option>1+</option><option>2+</option><option>3+</option><option>4+</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-glucose-flag"></div></div>
+      <div class="ua-row"><div>Protein</div><select id="ua-protein" onchange="flagSel(this,'ua-protein-flag',['Negative','Trace'])"><option value="">Select...</option><option>Negative</option><option>Trace</option><option>1+</option><option>2+</option><option>3+</option><option>4+</option></select><div style="font-size:11px;color:var(--tx3);">Negative/Trace</div><div id="ua-protein-flag"></div></div>
+      <div class="ua-row"><div>Blood / Hemoglobin</div><select id="ua-blood" onchange="flagSel(this,'ua-blood-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>Trace non-hemolyzed</option><option>Trace hemolyzed</option><option>1+</option><option>2+</option><option>3+</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-blood-flag"></div></div>
+      <div class="ua-row"><div>Leukocyte Esterase</div><select id="ua-le" onchange="flagSel(this,'ua-le-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>Trace</option><option>1+</option><option>2+</option><option>3+</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-le-flag"></div></div>
+      <div class="ua-row"><div>Nitrite</div><select id="ua-nitrite" onchange="flagSel(this,'ua-nitrite-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>Positive</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-nitrite-flag"></div></div>
+      <div class="ua-row"><div>Ketones</div><select id="ua-ketones" onchange="flagSel(this,'ua-ketones-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>Trace</option><option>1+</option><option>2+</option><option>3+</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-ketones-flag"></div></div>
+      <div class="ua-row"><div>Bilirubin</div><select id="ua-bili" onchange="flagSel(this,'ua-bili-flag',['Negative'])"><option value="">Select...</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select><div style="font-size:11px;color:var(--tx3);">Negative</div><div id="ua-bili-flag"></div></div>
+      <div class="ua-row"><div>Urobilinogen</div><select id="ua-urobili" onchange="flagSel(this,'ua-urobili-flag',['Normal','0.2 EU/dL'])"><option value="">Select...</option><option>Normal</option><option>0.2 EU/dL</option><option>1 EU/dL</option><option>2 EU/dL</option><option>4 EU/dL</option><option>8 EU/dL</option></select><div style="font-size:11px;color:var(--tx3);">Normal – 1 EU/dL</div><div id="ua-urobili-flag"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-microscope" style="margin-right:4px;"></i>Microscopic Examination <span style="font-size:12px;font-weight:400;color:var(--tx2);">(HPF / LPF)</span></div>
+      <div class="g3" style="margin-bottom:10px;">
+        <div class="micro-card"><div class="micro-lbl">RBCs / HPF</div><select id="ua-rbc" onchange="flagMicro(this,'ua-rbc-flag',['6-10','11-20','21-50','>50','TNTC'])"><option value="">Select...</option><option>0</option><option>0–2</option><option>3–5</option><option>6-10</option><option>11-20</option><option>21-50</option><option>>50</option><option>TNTC</option></select><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Normal: 0–2/HPF</div><span id="ua-rbc-flag"></span></div>
+        <div class="micro-card"><div class="micro-lbl">WBCs / HPF</div><select id="ua-wbc" onchange="flagMicro(this,'ua-wbc-flag',['6-10','11-20','21-50','>50','TNTC'])"><option value="">Select...</option><option>0</option><option>0–5</option><option>6-10</option><option>11-20</option><option>21-50</option><option>>50</option><option>TNTC</option></select><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Normal: 0–5/HPF</div><span id="ua-wbc-flag"></span></div>
+        <div class="micro-card"><div class="micro-lbl">Epithelial Cells / HPF</div><select id="ua-epi"><option value="">Select...</option><option>None</option><option>Rare</option><option>Few</option><option>Moderate</option><option>Many</option></select></div>
+        <div class="micro-card"><div class="micro-lbl">Casts / LPF</div><select id="ua-casts" onchange="flagMicro(this,'ua-casts-flag',['Granular','Waxy','RBC casts','WBC casts','Fatty','Broad/renal failure'])"><option value="">Select...</option><option>None</option><option>Rare hyaline</option><option>Granular</option><option>Waxy</option><option>RBC casts</option><option>WBC casts</option><option>Fatty</option><option>Broad/renal failure</option></select><span id="ua-casts-flag"></span></div>
+        <div class="micro-card"><div class="micro-lbl">Bacteria</div><select id="ua-bacteria" onchange="flagMicro(this,'ua-bact-flag',['Rare','Few','Moderate','Many'])"><option value="">Select...</option><option>None</option><option>Rare</option><option>Few</option><option>Moderate</option><option>Many</option></select><span id="ua-bact-flag"></span></div>
+        <div class="micro-card"><div class="micro-lbl">Crystals</div><select id="ua-crystals"><option value="">Select...</option><option>None</option><option>Amorphous urates</option><option>Calcium oxalate</option><option>Triple phosphate</option><option>Uric acid</option><option>Cystine</option></select></div>
+        <div class="micro-card"><div class="micro-lbl">Yeast</div><select id="ua-yeast" onchange="flagMicro(this,'ua-yeast-flag',['Few','Moderate','Many'])"><option value="">Select...</option><option>None</option><option>Few</option><option>Moderate</option><option>Many</option></select><span id="ua-yeast-flag"></span></div>
+        <div class="micro-card" style="grid-column:span 2;"><div class="micro-lbl">Comment</div><textarea id="ua-comment" placeholder="Mucus, specimen quality, other findings..." style="min-height:44px;font-size:12px;width:100%;"></textarea></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="g2">
+        <div><label>Technologist / Initials</label><input type="text" id="ua-tech" placeholder="MLA Student initials"></div>
+        <div><label>Instrument / Method</label><input type="text" id="ua-instr" placeholder="e.g. Sysmex UF-5000, Manual"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PATIENT FILE -->
+<div id="panel-patientfile" class="panel">
+  <div class="page-title">Patient File</div>
+  <div class="page-sub">Reported results and filed documents</div>
+  <div id="file-none" class="card" style="text-align:center;padding:20px;color:var(--tx2);">No patient selected.</div>
+  <div id="file-content" style="display:none;">
+    <div class="card">
+      <div class="row-between">
+        <div><div style="font-size:16px;font-weight:600;" id="file-ptname"></div><div style="font-size:12px;color:var(--tx2);margin-top:2px;" id="file-ptmeta"></div></div>
+        <div style="text-align:right;font-size:12px;color:var(--tx2);" id="file-ptaccn"></div>
+      </div>
+    </div>
+    <div id="file-empty" class="card" style="text-align:center;padding:20px;color:var(--tx2);">No results filed yet.</div>
+    <div id="file-recv" style="display:none;" class="card">
+      <div class="row-between" style="margin-bottom:12px;"><div><span style="font-weight:500;">Receiving Record</span> <span class="badge b-blue" style="margin-left:6px;">Logged</span></div><div style="font-size:11px;color:var(--tx2);" id="file-recv-ts"></div></div>
+      <div id="file-recv-body"></div>
+    </div>
+    <div id="file-ua" style="display:none;" class="card">
+      <div class="row-between" style="margin-bottom:12px;"><div><span style="font-weight:500;">Urinalysis Report</span> <span class="badge b-green" style="margin-left:6px;">Filed</span></div><div style="font-size:11px;color:var(--tx2);" id="file-ua-ts"></div></div>
+      <div id="file-ua-body"></div>
+    </div>
+    <div id="file-results" style="display:none;" class="card">
+      <div class="row-between" style="margin-bottom:12px;"><div><span style="font-weight:500;">Laboratory Results</span> <span class="badge b-green" style="margin-left:6px;">Verified</span></div><div style="font-size:11px;color:var(--tx2);" id="file-res-ts"></div></div>
+      <div id="file-results-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QC -->
+<div id="panel-qc" class="panel">
+  <div class="page-title">Quality Control</div>
+  <div class="page-sub">Levey-Jennings charts and Westgard rule checking</div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">QC Configuration</div>
+      <label>Analyte</label>
+      <select id="qc-analyte" onchange="initQC()">
+        <option value="glucose">Glucose (mmol/L)</option>
+        <option value="sodium">Sodium (mmol/L)</option>
+        <option value="hemoglobin">Hemoglobin (g/L)</option>
+        <option value="potassium">Potassium (mmol/L)</option>
+        <option value="creatinine">Creatinine (µmol/L)</option>
+        <option value="wbc">WBC (×10⁹/L)</option>
+      </select>
+      <label>Control Level</label>
+      <select id="qc-level"><option value="1">Level 1 — Normal</option><option value="2">Level 2 — Abnormal</option></select>
+      <label>Enter QC Result</label>
+      <div class="row" style="gap:8px;margin-top:2px;"><input type="number" id="qc-val" placeholder="value" step="0.01" style="flex:1;"><button class="btn btn-primary" onclick="addQC()"><i class="ti ti-plus"></i> Add</button></div>
+      <hr>
+      <div style="font-size:12px;color:var(--tx2);line-height:1.9;">Mean: <strong id="qc-mean">—</strong><br>±1 SD: <strong id="qc-1sd">—</strong><br>±2 SD: <strong id="qc-2sd">—</strong><br>±3 SD: <strong id="qc-3sd">—</strong></div>
+      <hr>
+      <div class="row"><button class="btn" onclick="simQC()"><i class="ti ti-wand"></i> Simulate 20 pts</button><button class="btn btn-danger" onclick="clearQC()"><i class="ti ti-trash"></i> Clear</button></div>
+    </div>
+    <div class="card">
+      <div class="row-between" style="margin-bottom:8px;"><div class="card-title" style="margin:0;">Levey-Jennings Chart</div><span class="badge b-gray" id="qc-badge">Westgard Rules</span></div>
+      <div class="lj-wrap"><canvas id="lj-canvas"></canvas></div>
+      <div style="font-size:11px;color:var(--tx2);margin-top:6px;"><span style="color:var(--red);">▲ Rule violation</span> &nbsp;<span style="color:var(--amber);">● Warning</span> &nbsp;<span style="color:var(--teal);">● In-control</span></div>
+      <div id="qc-violations" style="margin-top:8px;font-size:12px;"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">QC Data Log</div>
+    <table class="tbl"><thead><tr><th>#</th><th>Time</th><th>Analyte</th><th>Level</th><th>Result</th><th>Target</th><th>Z-score</th><th>Status</th></tr></thead><tbody id="qc-log"></tbody></table>
+  </div>
+</div>
 
     </main>
   </div>
 </div>
-
 <div id="toast" class="toast" role="alert"></div>
 
 <script>
-// ============================================================
-// DATA
-// ============================================================
+// ── PROXY URL ────────────────────────────────────────────────
+const PROXY_URL = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
+
+// ── TEST MENU (APL Form 21302) ───────────────────────────────
+// dept: H=Hematology, C=Chemistry, O=Coagulation, M=Microbiology, T=Transfusion
+// special: APL collection requirements
 const TESTS = {
   heme:[
-    {code:'CBC',name:'CBC',tube:'EDTA (purple)',tat:'1h',comps:[
+    {code:'CBC-DIFF',name:'CBC with Differential',dept:'H',tube:'EDTA (purple)',tat:'2h',comps:[
       {n:'WBC',u:'×10⁹/L',rM:[4.5,11.0],rF:[4.5,11.0],cL:2.0,cH:30.0},
       {n:'RBC',u:'×10¹²/L',rM:[4.5,5.5],rF:[4.0,5.0]},
       {n:'Hemoglobin',u:'g/L',rM:[130,170],rF:[120,160],cL:70,cH:200},
@@ -805,809 +615,302 @@ const TESTS = {
       {n:'MCV',u:'fL',rM:[80,100],rF:[80,100]},
       {n:'MCH',u:'pg',rM:[27,33],rF:[27,33]},
       {n:'MCHC',u:'g/L',rM:[320,360],rF:[320,360]},
+      {n:'RDW',u:'%',rM:[11.5,14.5],rF:[11.5,14.5]},
       {n:'Platelets',u:'×10⁹/L',rM:[150,400],rF:[150,400],cL:50,cH:1000},
       {n:'Neutrophils',u:'×10⁹/L',rM:[1.8,7.7],rF:[1.8,7.7]},
       {n:'Lymphocytes',u:'×10⁹/L',rM:[1.0,3.5],rF:[1.0,3.5]},
       {n:'Monocytes',u:'×10⁹/L',rM:[0.2,1.0],rF:[0.2,1.0]},
+      {n:'Eosinophils',u:'×10⁹/L',rM:[0.0,0.5],rF:[0.0,0.5]},
+      {n:'Basophils',u:'×10⁹/L',rM:[0.0,0.1],rF:[0.0,0.1]},
     ]},
-    {code:'DIFF',name:'Manual Diff',tube:'EDTA (purple)',tat:'2h',comps:[
-      {n:'Bands',u:'%',rM:[0,5],rF:[0,5]},
-      {n:'Blasts',u:'%',rM:[0,0],rF:[0,0],cH:0},
+    {code:'CBC',name:'CBC no Differential',dept:'H',tube:'EDTA (purple)',tat:'1h',comps:[
+      {n:'WBC',u:'×10⁹/L',rM:[4.5,11.0],rF:[4.5,11.0],cL:2.0,cH:30.0},
+      {n:'RBC',u:'×10¹²/L',rM:[4.5,5.5],rF:[4.0,5.0]},
+      {n:'Hemoglobin',u:'g/L',rM:[130,170],rF:[120,160],cL:70,cH:200},
+      {n:'Hematocrit',u:'L/L',rM:[0.40,0.52],rF:[0.37,0.47]},
+      {n:'MCV',u:'fL',rM:[80,100],rF:[80,100]},
+      {n:'Platelets',u:'×10⁹/L',rM:[150,400],rF:[150,400],cL:50,cH:1000},
     ]},
-    {code:'RETIC',name:'Reticulocyte Count',tube:'EDTA (purple)',tat:'2h',comps:[
-      {n:'Reticulocytes',u:'%',rM:[0.5,2.5],rF:[0.5,2.5]}
+    {code:'RETIC',name:'Reticulocyte Count',dept:'H',tube:'EDTA (purple)',tat:'2h',comps:[
+      {n:'Reticulocytes',u:'%',rM:[0.5,2.5],rF:[0.5,2.5]},
+      {n:'Absolute Reticulocytes',u:'×10⁹/L',rM:[25,125],rF:[25,125]},
     ]},
+    {code:'MONO',name:'Mononucleosis Test',dept:'H',tube:'EDTA (purple)',tat:'1h',comps:[
+      {n:'Monospot',u:'',rM:['Negative'],rF:['Negative'],txt:true}
+    ]},
+    {code:'INR',name:'INR / PT',dept:'O',tube:'Citrate (blue — 9:1 fill)',tat:'2h',comps:[
+      {n:'PT',u:'seconds',rM:[11,14],rF:[11,14],cH:30},
+      {n:'INR',u:'ratio',rM:[0.9,1.1],rF:[0.9,1.1],cH:5.0},
+    ],special:'Citrate tube must be filled to exactly 9:1 ratio. Mix gently by inversion ×3–4.'},
+    {code:'APTT',name:'aPTT',dept:'O',tube:'Citrate (blue — 9:1 fill)',tat:'2h',comps:[
+      {n:'aPTT',u:'seconds',rM:[25,38],rF:[25,38],cH:75}
+    ],special:'Citrate tube must be filled to exactly 9:1 ratio.'},
+    {code:'DDIM',name:'D-dimer',dept:'O',tube:'Citrate (blue — 9:1 fill)',tat:'2h',comps:[
+      {n:'D-Dimer',u:'mg/L FEU',rM:[0,0.5],rF:[0,0.5]}
+    ],special:'Citrate tube must be filled to exactly 9:1 ratio.'},
+    {code:'FIBR',name:'Fibrinogen',dept:'O',tube:'Citrate (blue — 9:1 fill)',tat:'2h',comps:[
+      {n:'Fibrinogen',u:'g/L',rM:[2.0,4.0],rF:[2.0,4.0],cL:1.0}
+    ],special:'Citrate tube must be filled to exactly 9:1 ratio.'},
   ],
   chem:[
-    {code:'BMP',name:'BMP',tube:'SST (gold)',tat:'1h',comps:[
+    {code:'ALB',name:'Albumin',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Albumin',u:'g/L',rM:[35,50],rF:[35,50]}]},
+    {code:'ALP',name:'Alkaline Phosphatase (ALP)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'ALP',u:'U/L',rM:[45,115],rF:[30,100]}]},
+    {code:'ALT',name:'Alanine Aminotransferase (ALT)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'ALT',u:'U/L',rM:[7,56],rF:[7,45]}]},
+    {code:'BILT',name:'Bilirubin, Total',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Bilirubin Total',u:'µmol/L',rM:[3,21],rF:[3,21],cH:340}],special:'Protect from light — wrap tube in foil immediately after collection.'},
+    {code:'BILC',name:'Bilirubin, Total & Conjugated',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
+      {n:'Bilirubin Total',u:'µmol/L',rM:[3,21],rF:[3,21],cH:340},
+      {n:'Bilirubin Conjugated',u:'µmol/L',rM:[0,5],rF:[0,5]},
+    ],special:'Protect from light — wrap tube in foil immediately after collection.'},
+    {code:'CA',name:'Calcium',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Calcium',u:'mmol/L',rM:[2.15,2.55],rF:[2.15,2.55],cL:1.5,cH:3.5}]},
+    {code:'CRP',name:'C-Reactive Protein (CRP)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'CRP',u:'mg/L',rM:[0,8],rF:[0,8]}]},
+    {code:'CK',name:'Creatine Kinase (CK)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'CK',u:'U/L',rM:[55,170],rF:[30,135]}]},
+    {code:'CREAT',name:'Creatinine (eGFR)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
+      {n:'Creatinine',u:'µmol/L',rM:[62,106],rF:[44,80],cH:700},
+      {n:'eGFR',u:'mL/min/1.73m²',rM:[60,999],rF:[60,999]},
+    ]},
+    {code:'LYTES',name:'Electrolytes (Na/K/Cl/CO2)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
       {n:'Sodium',u:'mmol/L',rM:[136,145],rF:[136,145],cL:120,cH:160},
       {n:'Potassium',u:'mmol/L',rM:[3.5,5.0],rF:[3.5,5.0],cL:2.8,cH:6.5},
       {n:'Chloride',u:'mmol/L',rM:[98,107],rF:[98,107]},
-      {n:'CO2 (Bicarb)',u:'mmol/L',rM:[22,29],rF:[22,29],cL:10,cH:40},
-      {n:'BUN',u:'mmol/L',rM:[2.5,7.1],rF:[2.5,7.1]},
-      {n:'Creatinine',u:'µmol/L',rM:[62,106],rF:[44,80],cH:700},
-      {n:'Glucose',u:'mmol/L',rM:[3.9,6.1],rF:[3.9,6.1],cL:2.2,cH:27.8},
-      {n:'Calcium',u:'mmol/L',rM:[2.15,2.55],rF:[2.15,2.55],cL:1.5,cH:3.5},
+      {n:'CO2 (Bicarbonate)',u:'mmol/L',rM:[22,29],rF:[22,29],cL:10,cH:40},
     ]},
-    {code:'CMP',name:'CMP',tube:'SST (gold)',tat:'1.5h',comps:[
-      {n:'AST',u:'U/L',rM:[10,40],rF:[9,32]},
-      {n:'ALT',u:'U/L',rM:[7,56],rF:[7,45]},
-      {n:'ALP',u:'U/L',rM:[45,115],rF:[30,100]},
-      {n:'Total Bilirubin',u:'µmol/L',rM:[3,21],rF:[3,21],cH:340},
-      {n:'Total Protein',u:'g/L',rM:[64,83],rF:[64,83]},
-      {n:'Albumin',u:'g/L',rM:[35,50],rF:[35,50]},
+    {code:'GLUC',name:'Glucose',dept:'C',tube:'Fluoride oxalate (grey)',tat:'2h',comps:[{n:'Glucose',u:'mmol/L',rM:[3.9,6.1],rF:[3.9,6.1],cL:2.2,cH:27.8}],special:'Collect in grey-top fluoride oxalate tube. Transport on ice if delayed >30 min.'},
+    {code:'LDH',name:'Lactate Dehydrogenase (LDH)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'LDH',u:'U/L',rM:[120,250],rF:[120,250]}]},
+    {code:'LIPASE',name:'Lipase',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Lipase',u:'U/L',rM:[13,60],rF:[13,60]}]},
+    {code:'MG',name:'Magnesium',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Magnesium',u:'mmol/L',rM:[0.70,1.05],rF:[0.70,1.05],cL:0.4,cH:2.0}]},
+    {code:'PHOS',name:'Phosphate',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Phosphate',u:'mmol/L',rM:[0.81,1.45],rF:[0.81,1.45],cL:0.3}]},
+    {code:'TP',name:'Total Protein',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Total Protein',u:'g/L',rM:[64,83],rF:[64,83]}]},
+    {code:'UREA',name:'Urea',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Urea',u:'mmol/L',rM:[2.5,7.1],rF:[2.5,7.1],cH:35}]},
+    {code:'URIC',name:'Uric Acid',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Uric Acid',u:'µmol/L',rM:[208,428],rF:[155,357]}]},
+    {code:'TROP',name:'Troponin I (hs)',dept:'C',tube:'SST (gold)',tat:'1h',comps:[{n:'Troponin I',u:'ng/L',rM:[0,26],rF:[0,16],cH:1000}],special:'STAT — transport immediately to lab. Do not centrifuge at room temp >60 min.'},
+    {code:'BNP',name:'BNP / NT-proBNP',dept:'C',tube:'EDTA (purple)',tat:'4h',comps:[{n:'BNP',u:'pg/mL',rM:[0,100],rF:[0,100]}]},
+    {code:'LACT',name:'Lactate',dept:'C',tube:'Fluoride oxalate (grey)',tat:'1h',comps:[{n:'Lactate',u:'mmol/L',rM:[0.5,2.2],rF:[0.5,2.2],cH:5.0}],special:'Collect on ICE. Patient must be at rest ≥2 min before collection. Transport on ice immediately. Process within 15 min.'},
+    {code:'AMMO',name:'Ammonia',dept:'C',tube:'EDTA (purple)',tat:'1h',comps:[{n:'Ammonia',u:'µmol/L',rM:[11,35],rF:[11,35],cH:100}],special:'Collect on ICE. Transport to lab immediately packed in ice/water slurry. Process within 15 min.'},
+  ],
+  special:[
+    {code:'FERR',name:'Ferritin',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Ferritin',u:'µg/L',rM:[24,336],rF:[11,307],cL:5}]},
+    {code:'HBA1C',name:'HbA1c',dept:'H',tube:'EDTA (purple)',tat:'4h',comps:[{n:'HbA1c',u:'%',rM:[4.0,6.0],rF:[4.0,6.0]}]},
+    {code:'IRON',name:'Iron Studies',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
+      {n:'Serum Iron',u:'µmol/L',rM:[11,30],rF:[7,26]},
+      {n:'TIBC',u:'µmol/L',rM:[45,80],rF:[45,80]},
+      {n:'Transferrin Saturation',u:'%',rM:[20,50],rF:[15,50]},
     ]},
-    {code:'LIPID',name:'Lipid Panel',tube:'SST (gold)',tat:'1h',comps:[
+    {code:'FOLB12',name:'Folate & B12',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
+      {n:'Folate',u:'nmol/L',rM:[7,45],rF:[7,45],cL:3},
+      {n:'Vitamin B12',u:'pmol/L',rM:[138,652],rF:[138,652],cL:74},
+    ],special:'Protect from light immediately after collection.'},
+    {code:'PSA',name:'PSA (Total)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'PSA',u:'µg/L',rM:[0,4.0],rF:[0,0]}]},
+    {code:'BHCG',name:'Beta-hCG',dept:'C',tube:'SST (gold)',tat:'2h',comps:[{n:'Beta-hCG',u:'IU/L',rM:[0,2],rF:[0,99999]}]},
+    {code:'LIPID',name:'Lipid Panel',dept:'C',tube:'SST (gold)',tat:'4h',comps:[
       {n:'Total Cholesterol',u:'mmol/L',rM:[0,5.2],rF:[0,5.2]},
       {n:'LDL',u:'mmol/L',rM:[0,3.4],rF:[0,3.4]},
       {n:'HDL',u:'mmol/L',rM:[1.0,99],rF:[1.3,99]},
       {n:'Triglycerides',u:'mmol/L',rM:[0,1.7],rF:[0,1.7],cH:11.3},
-    ]},
+    ],special:'Fasting specimen preferred (8–12 hours). Confirm fasting status.'},
+    {code:'CRYO',name:'Cryoglobulins',dept:'C',tube:'SST (gold)',tat:'72h',comps:[{n:'Cryoglobulins',u:'',rM:['Not detected'],rF:['Not detected'],txt:true}],special:'WARM collection required. Pre-warm collection tubes to 37°C. Transport immediately in insulated container at 37°C. Do not refrigerate.'},
+    {code:'ETOH',name:'Ethanol Level',dept:'C',tube:'Grey-top (no alcohol swab)',tat:'2h',comps:[{n:'Ethanol',u:'mmol/L',rM:[0,0],rF:[0,0],cH:10}],special:'Do NOT use alcohol swab for venipuncture site. Use povidone-iodine or aqueous chlorhexidine only.'},
   ],
-  coag:[
-    {code:'PTINR',name:'PT/INR',tube:'Citrate (blue)',tat:'1h',comps:[
-      {n:'PT',u:'seconds',rM:[11,14],rF:[11,14],cH:30},
-      {n:'INR',u:'ratio',rM:[0.9,1.1],rF:[0.9,1.1],cH:5.0},
-    ]},
-    {code:'APTT',name:'aPTT',tube:'Citrate (blue)',tat:'1h',comps:[
-      {n:'aPTT',u:'seconds',rM:[25,38],rF:[25,38],cH:75}
-    ]},
-    {code:'FIBR',name:'Fibrinogen',tube:'Citrate (blue)',tat:'1h',comps:[
-      {n:'Fibrinogen',u:'g/L',rM:[2.0,4.0],rF:[2.0,4.0],cL:1.0}
-    ]},
-    {code:'DDIM',name:'D-Dimer',tube:'Citrate (blue)',tat:'1h',comps:[
-      {n:'D-Dimer',u:'mg/L FEU',rM:[0,0.5],rF:[0,0.5]}
-    ]},
+  endo:[
+    {code:'TSH',name:'TSH',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'TSH',u:'mIU/L',rM:[0.4,4.0],rF:[0.4,4.0],cL:0.01}]},
+    {code:'FT4',name:'Free T4',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Free T4',u:'pmol/L',rM:[9.0,26.0],rF:[9.0,26.0]}]},
+    {code:'CORT',name:'Cortisol (Random)',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Cortisol',u:'nmol/L',rM:[171,536],rF:[171,536]}],special:'Record exact collection time on requisition. AM (0700–1000) vs PM (1500–1800) has different reference ranges.'},
+    {code:'E2',name:'Estradiol',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Estradiol',u:'pmol/L',rM:[0,160],rF:[0,1600]}]},
+    {code:'FSH',name:'FSH',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'FSH',u:'IU/L',rM:[1.5,12.4],rF:[2.5,10.2]}]},
+    {code:'LH',name:'LH',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'LH',u:'IU/L',rM:[1.7,8.6],rF:[2.4,12.6]}]},
+    {code:'PTH',name:'Parathyroid Hormone (PTH)',dept:'C',tube:'EDTA (purple)',tat:'4h',comps:[{n:'PTH',u:'pmol/L',rM:[1.6,6.9],rF:[1.6,6.9]}],special:'Transport on ice. Process within 30 min of collection.'},
+    {code:'PROG',name:'Progesterone',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Progesterone',u:'nmol/L',rM:[0,1.4],rF:[0,78]}]},
+    {code:'PRL',name:'Prolactin',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Prolactin',u:'µg/L',rM:[4,15],rF:[4,30]}],special:'Patient must be resting (not stressed) prior to collection. Avoid collection within 1 hour of waking.'},
+    {code:'TESTO',name:'Testosterone, Total',dept:'C',tube:'SST (gold)',tat:'4h',comps:[{n:'Testosterone',u:'nmol/L',rM:[8.4,28.7],rF:[0.3,2.4]}],special:'Collect between 0700–1000 (diurnal variation).'},
   ],
   ua:[
-    {code:'UA',name:'Urinalysis',tube:'Urine cup',tat:'30min',comps:[
-      {n:'UA — see Urinalysis tab',u:'',rM:['See UA tab'],rF:['See UA tab'],txt:true}
-    ]},
-    {code:'UCX',name:'Urine C&S',tube:'Urine sterile',tat:'48-72h',comps:[
+    {code:'UA',name:'Urinalysis',dept:'C',tube:'Urine cup (yellow)',tat:'2h',comps:[{n:'UA — see Urinalysis tab',u:'',rM:['See UA tab'],rF:['See UA tab'],txt:true}]},
+    {code:'UCX',name:'Urine Culture & Sensitivity',dept:'M',tube:'Urine sterile cup',tat:'48-72h',comps:[
       {n:'Colony Count',u:'CFU/mL',rM:[0,10000],rF:[0,10000]},
       {n:'Organism',u:'',rM:['No growth'],rF:['No growth'],txt:true},
-    ]},
+    ],special:'Midstream clean-catch. Transfer to boric acid transport tube within 2 hours of collection.'},
+    {code:'U24',name:'Urine 24-hour',dept:'C',tube:'24h urine jug',tat:'4h',comps:[
+      {n:'24h Volume',u:'mL',rM:[600,2500],rF:[600,2500]},
+      {n:'24h Creatinine',u:'mmol/day',rM:[8.8,17.7],rF:[7.1,15.9]},
+    ],special:'Discard first morning void. Collect all urine for 24 hours including final void. Keep refrigerated during collection.'},
   ],
   micro:[
-    {code:'BCX',name:'Blood Culture ×2',tube:'Aerobic+Anaerobic',tat:'5 days',comps:[
-      {n:'Blood Culture',u:'',rM:['No growth'],rF:['No growth'],txt:true}
-    ]},
-    {code:'SWAB',name:'Wound Swab C&S',tube:'Swab transport',tat:'48h',comps:[
-      {n:'Gram stain',u:'',rM:['No organisms'],rF:['No organisms'],txt:true},
+    {code:'BCX',name:'Blood Culture ×2',dept:'M',tube:'Aerobic + Anaerobic bottles',tat:'5 days',comps:[{n:'Blood Culture',u:'',rM:['No growth at 5 days'],rF:['No growth at 5 days'],txt:true}],special:'Strict aseptic technique. Collect from 2 separate venipuncture sites. Fill aerobic bottle first (8–10 mL each). Do not refrigerate — transport to lab within 2 hours.'},
+    {code:'SWAB',name:'Wound Swab C&S',dept:'M',tube:'Swab in Amies transport',tat:'48h',comps:[
+      {n:'Gram Stain',u:'',rM:['No organisms seen'],rF:['No organisms seen'],txt:true},
       {n:'Culture',u:'',rM:['No growth'],rF:['No growth'],txt:true},
-    ]},
-    {code:'STREP',name:'Strep Screen',tube:'Throat swab',tat:'30min',comps:[
-      {n:'Group A Strep',u:'',rM:['Negative'],rF:['Negative'],txt:true}
-    ]},
+    ],special:'Use Amies transport medium. Transport at room temperature. Process within 24 hours.'},
+    {code:'STREP',name:'Group A Strep Screen',dept:'M',tube:'Throat swab',tat:'30min',comps:[{n:'Group A Strep',u:'',rM:['Negative'],rF:['Negative'],txt:true}]},
+    {code:'CDIFF',name:'C. difficile Toxin',dept:'M',tube:'Stool container',tat:'24h',comps:[{n:'C. diff Toxin A/B',u:'',rM:['Not detected'],rF:['Not detected'],txt:true}],special:'Liquid or unformed stool only. Do not submit formed stool. Transport at room temperature. Process within 2 hours or refrigerate.'},
   ],
-  bb:[
-    {code:'TS',name:'Type & Screen',tube:'Pink-top EDTA',tat:'1h',comps:[
+  tm:[
+    {code:'TS',name:'Type & Screen',dept:'T',tube:'Pink-top EDTA (×2 required)',tat:'1h',comps:[
       {n:'ABO Group',u:'',rM:['Report'],rF:['Report'],txt:true},
       {n:'Rh(D)',u:'',rM:['Report'],rF:['Report'],txt:true},
       {n:'Antibody Screen',u:'',rM:['Negative'],rF:['Negative'],txt:true},
-    ]},
-    {code:'XMATCH',name:'Crossmatch',tube:'Pink-top EDTA',tat:'1h',comps:[
-      {n:'Crossmatch',u:'',rM:['Compatible'],rF:['Compatible'],txt:true}
-    ]},
-    {code:'DAT',name:'Direct Antiglobulin',tube:'EDTA',tat:'1h',comps:[
+    ],special:'TWO pink-top EDTA tubes required, collected at separate times OR by different collectors per APL policy. Each tube must be individually signed/initialled by collector.'},
+    {code:'XMATCH',name:'Crossmatch',dept:'T',tube:'Pink-top EDTA (×2 required)',tat:'1h',comps:[{n:'Crossmatch',u:'',rM:['Compatible'],rF:['Compatible'],txt:true}],special:'TWO pink-top EDTA tubes required. Patient ID verification critical — use two identifiers.'},
+    {code:'DAT',name:'Direct Antiglobulin Test (DAT)',dept:'T',tube:'EDTA (purple)',tat:'2h',comps:[
       {n:'DAT (IgG)',u:'',rM:['Negative'],rF:['Negative'],txt:true},
       {n:'DAT (C3d)',u:'',rM:['Negative'],rF:['Negative'],txt:true},
-    ]},
-  ],
-  other:[
-    {code:'TSH',name:'TSH',tube:'SST (gold)',tat:'2h',comps:[
-      {n:'TSH',u:'mIU/L',rM:[0.4,4.0],rF:[0.4,4.0],cL:0.01}
-    ]},
-    {code:'FT4',name:'Free T4',tube:'SST (gold)',tat:'2h',comps:[
-      {n:'Free T4',u:'pmol/L',rM:[9.0,26.0],rF:[9.0,26.0]}
-    ]},
-    {code:'TROP',name:'Troponin I (hs)',tube:'SST (gold)',tat:'1h',comps:[
-      {n:'Troponin I',u:'ng/L',rM:[0,26],rF:[0,16],cH:1000}
-    ]},
-    {code:'BNP',name:'BNP',tube:'EDTA (purple)',tat:'1h',comps:[
-      {n:'BNP',u:'pg/mL',rM:[0,100],rF:[0,100]}
-    ]},
-    {code:'BHCG',name:'Beta-hCG',tube:'SST (gold)',tat:'1h',comps:[
-      {n:'Beta-hCG',u:'IU/L',rM:[0,2],rF:[0,99999]}
-    ]},
-    {code:'IRON',name:'Iron Studies',tube:'SST (gold)',tat:'2h',comps:[
-      {n:'Serum Iron',u:'µmol/L',rM:[11,30],rF:[7,26]},
-      {n:'TIBC',u:'µmol/L',rM:[45,80],rF:[45,80]},
-      {n:'Ferritin',u:'µg/L',rM:[24,336],rF:[11,307],cL:5},
     ]},
   ],
 };
 
 const TUBE_COL = {
-  'EDTA (purple)':'#8B5CF6','SST (gold)':'#D97706','Citrate (blue)':'#2563EB',
-  'Pink-top EDTA':'#DB2777','Urine cup':'#F59E0B','Urine sterile':'#F59E0B',
-  'Aerobic+Anaerobic':'#059669','Swab transport':'#6B7280','Throat swab':'#6B7280','EDTA':'#8B5CF6'
+  'EDTA (purple)':'#8B5CF6','SST (gold)':'#D97706','Citrate (blue — 9:1 fill)':'#2563EB',
+  'Pink-top EDTA (×2 required)':'#DB2777','Urine cup (yellow)':'#F59E0B',
+  'Urine sterile cup':'#F59E0B','Fluoride oxalate (grey)':'#6B7280',
+  'Aerobic + Anaerobic bottles':'#059669','Swab in Amies transport':'#9CA3AF',
+  'Throat swab':'#9CA3AF','Stool container':'#92400E','24h urine jug':'#B45309',
+  'EDTA (purple)':'#8B5CF6','Grey-top (no alcohol swab)':'#6B7280'
 };
 
-const QCP = {
-  glucose:{mean:5.0,sd:0.15,u:'mmol/L'},
-  sodium:{mean:140,sd:1.5,u:'mmol/L'},
-  hemoglobin:{mean:145,sd:3,u:'g/L'},
-  potassium:{mean:4.2,sd:0.12,u:'mmol/L'},
-  creatinine:{mean:88,sd:4,u:'µmol/L'},
-  wbc:{mean:7.0,sd:0.4,u:'×10⁹/L'},
+// Department sequences — reset daily, tracked per dept
+const DEPT_SEQ = {H:1,C:1,O:1,M:1,T:1};
+let DEPT_SEQ_DATE = todayStr();
+
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+function julianDate(d){
+  const start=new Date(d.getFullYear(),0,0);
+  const diff=d-start;
+  return String(Math.floor(diff/86400000)).padStart(3,'0');
+}
+
+function nextAccn(deptCode){
+  const today=todayStr();
+  if(today!==DEPT_SEQ_DATE){Object.keys(DEPT_SEQ).forEach(k=>DEPT_SEQ[k]=1);DEPT_SEQ_DATE=today;}
+  const d=new Date();
+  const yy=String(d.getFullYear()).slice(-2);
+  const jd=julianDate(d);
+  const seq=String(DEPT_SEQ[deptCode]).padStart(5,'0');
+  const accn=yy+'RD'+jd+deptCode+seq;
+  DEPT_SEQ[deptCode]++;
+  return accn;
+}
+
+const QCP={
+  glucose:{mean:5.0,sd:0.15,u:'mmol/L'},sodium:{mean:140,sd:1.5,u:'mmol/L'},
+  hemoglobin:{mean:145,sd:3,u:'g/L'},potassium:{mean:4.2,sd:0.12,u:'mmol/L'},
+  creatinine:{mean:88,sd:4,u:'µmol/L'},wbc:{mean:7.0,sd:0.4,u:'×10⁹/L'},
 };
 
-// ============================================================
-// STATE
-// ============================================================
-let S = {
-  patients:[], active:null, orders:[], accnOk:false, accn:'',
-  results:{}, critN:0, uaVals:{}, uaFiled:false, uaTs:'',
-  resFiled:false, resTs:'', qcData:[], scenData:null, ljChart:null,
-
+// ── STATE ────────────────────────────────────────────────────
+let S={
+  patients:[],active:null,orders:[],
+  recvOk:false,recvData:{},
+  accnOk:false,accnMap:{},
+  results:{},critN:0,
+  uaVals:{},uaFiled:false,uaTs:'',
+  resFiled:false,resTs:'',
+  qcData:[],scenData:null,ljChart:null,
 };
 
-
-// ============================================================
-// API KEY
-// ============================================================
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-function go(name) {
+// ── NAVIGATION ───────────────────────────────────────────────
+function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
   document.getElementById('nav-'+name).classList.add('active');
-  if(name==='order') renderOrders();
-  if(name==='accession') renderAccn();
-  if(name==='results') renderResults();
-  if(name==='ua') renderUA();
-  if(name==='patientfile') renderFile();
-  if(name==='qc') { initQC(); renderQCLog(); }
+  if(name==='order')renderOrders();
+  if(name==='receiving')renderReceiving();
+  if(name==='accession')renderAccn();
+  if(name==='results')renderResults();
+  if(name==='ua')renderUA();
+  if(name==='patientfile')renderFile();
+  if(name==='qc'){initQC();renderQCLog();}
 }
 
-// ============================================================
-// TOAST
-// ============================================================
-function toast(msg, type='ok') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show t-'+type;
-  setTimeout(()=>t.classList.remove('show'), 3200);
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show t-'+type;
+  setTimeout(()=>t.classList.remove('show'),3200);
 }
 
-// ============================================================
-// ORDER MENU BUILD
-// ============================================================
-function buildMenus() {
-  const map = {
-    'og-heme': TESTS.heme, 'og-chem': TESTS.chem, 'og-coag': TESTS.coag,
-    'og-ua': TESTS.ua, 'og-micro': TESTS.micro, 'og-bb': TESTS.bb, 'og-other': TESTS.other
-  };
-  for(const [id, arr] of Object.entries(map)) {
-    document.getElementById(id).innerHTML = arr.map(t=>`
+// ── BUILD ORDER MENUS ────────────────────────────────────────
+function buildMenus(){
+  const map={'og-heme':TESTS.heme,'og-chem':TESTS.chem,'og-special':TESTS.special,
+    'og-endo':TESTS.endo,'og-ua':TESTS.ua,'og-micro':TESTS.micro,'og-tm':TESTS.tm};
+  for(const [id,arr] of Object.entries(map)){
+    document.getElementById(id).innerHTML=arr.map(t=>`
       <div class="oi" id="oi-${t.code}" onclick="toggleTest('${t.code}')">
         <div class="oi-name">${t.name}</div>
         <div class="oi-code">${t.code} · ${t.tube}</div>
+        ${t.special?'<div style="font-size:10px;color:var(--orange);margin-top:3px;"><i class="ti ti-alert-circle"></i> Special req.</div>':''}
       </div>`).join('');
   }
 }
 
-function toggleTest(code) {
-  const el = document.getElementById('oi-'+code);
-  const i = S.orders.indexOf(code);
+function toggleTest(code){
+  const el=document.getElementById('oi-'+code);
+  const i=S.orders.indexOf(code);
   if(i>-1){S.orders.splice(i,1);el.classList.remove('sel');}
-  else {S.orders.push(code);el.classList.add('sel');}
-  document.getElementById('ord-count').textContent = S.orders.length+' tests selected';
+  else{S.orders.push(code);el.classList.add('sel');}
+  document.getElementById('ord-count').textContent=S.orders.length+' tests selected';
 }
 
-function clearOrders() {
-  S.orders=[];
-  document.querySelectorAll('.oi').forEach(e=>e.classList.remove('sel'));
+function clearOrders(){
+  S.orders=[];document.querySelectorAll('.oi').forEach(e=>e.classList.remove('sel'));
   document.getElementById('ord-count').textContent='0 tests selected';
 }
 
-function renderOrders() {
-  if(!S.active){
-    document.getElementById('ord-nopt').style.display='';
-    document.getElementById('ord-form').style.display='none';
-  } else {
-    document.getElementById('ord-nopt').style.display='none';
-    document.getElementById('ord-form').style.display='';
+function renderOrders(){
+  if(!S.active){document.getElementById('ord-nopt').style.display='';document.getElementById('ord-form').style.display='none';}
+  else{
+    document.getElementById('ord-nopt').style.display='none';document.getElementById('ord-form').style.display='';
     document.getElementById('ord-ptname').textContent=S.active.fn+' '+S.active.ln;
+    document.getElementById('ord-priority-badge').textContent=S.active.priority||'Routine';
     S.orders.forEach(c=>{const el=document.getElementById('oi-'+c);if(el)el.classList.add('sel');});
     document.getElementById('ord-count').textContent=S.orders.length+' tests selected';
   }
 }
 
-function submitOrder() {
+function submitOrder(){
   if(!S.orders.length){toast('Select at least one test.','err');return;}
-  S.accnOk=false; S.results={}; S.uaVals={}; S.uaFiled=false; S.resFiled=false; S.critN=0;
+  S.recvOk=false;S.accnOk=false;S.results={};S.uaVals={};S.uaFiled=false;S.resFiled=false;S.critN=0;S.accnMap={};
   toast('Order submitted · '+S.orders.length+' tests');
-  updateDash(); go('accession');
+  updateDash();go('receiving');
 }
 
-// ============================================================
-// ACCESSION
-// ============================================================
-function allTests() {
-  return [...TESTS.heme,...TESTS.chem,...TESTS.coag,...TESTS.ua,...TESTS.micro,...TESTS.bb,...TESTS.other];
-}
-function orderedTests() { return allTests().filter(t=>S.orders.includes(t.code)); }
+// ── HELPERS ──────────────────────────────────────────────────
+function allTests(){return [...TESTS.heme,...TESTS.chem,...TESTS.special,...TESTS.endo,...TESTS.ua,...TESTS.micro,...TESTS.tm];}
+function orderedTests(){return allTests().filter(t=>S.orders.includes(t.code));}
 
-function renderAccn() {
+function getSpecialFlags(){
+  return orderedTests().filter(t=>t.special).map(t=>({name:t.name,msg:t.special}));
+}
+
+function renderSpecialFlags(containerId){
+  const flags=getSpecialFlags();
+  const area=document.getElementById(containerId);
+  if(!area)return;
+  if(!flags.length){area.innerHTML='';return;}
+  area.innerHTML=flags.map(f=>`
+    <div class="special-flag">
+      <i class="ti ti-alert-triangle"></i>
+      <div><strong>${f.name}:</strong> ${f.msg}</div>
+    </div>`).join('');
+}
+
+// ── RECEIVING ────────────────────────────────────────────────
+function renderReceiving(){
   if(!S.active||!S.orders.length){
-    document.getElementById('acc-none').style.display='';
-    document.getElementById('acc-form').style.display='none';
+    document.getElementById('recv-nopt').style.display='';
+    document.getElementById('recv-form').style.display='none';
     return;
   }
-  document.getElementById('acc-none').style.display='none';
-  document.getElementById('acc-form').style.display='';
-  regenAccn();
-  const tests=orderedTests();
-  const tubes=[...new Set(tests.map(t=>t.tube))];
-  document.getElementById('tube-list').innerHTML=tubes.map(tb=>`
-    <div class="tube"><span class="tube-dot" style="background:${TUBE_COL[tb]||'#aaa'}"></span>${tb}</div>`).join('');
-  document.getElementById('acc-tbody').innerHTML=tests.map(t=>`
-    <tr><td>${t.name}</td><td style="font-family:var(--mono);font-size:12px;">${t.code}</td>
-    <td><span class="tube" style="font-size:11px;padding:2px 8px;"><span class="tube-dot" style="background:${TUBE_COL[t.tube]||'#aaa'}"></span>${t.tube}</span></td>
-    <td>${t.tat}</td></tr>`).join('');
-}
-
-function regenAccn() {
-  const yr=new Date().getFullYear().toString().slice(-2);
-  const n=String(Math.floor(Math.random()*99999)).padStart(5,'0');
-  S.accn='RDP'+yr+n;
-  document.getElementById('accn-num').textContent=S.accn;
-  document.getElementById('accn-ts').textContent=new Date().toLocaleString();
-  const ta=document.getElementById('tb-accn');
-  ta.textContent=S.accn; ta.style.display='';
-}
-
-function confirmAccn() {
-  S.accnOk=true;
-  toast('Accession confirmed · '+S.accn);
-  updateDash();
-  if(S.orders.includes('UA')) go('ua');
-  else go('results');
-}
-
-// ============================================================
-// RESULTS ENTRY
-// ============================================================
-function renderResults() {
-  if(!S.accnOk){
-    document.getElementById('res-none').style.display='';
-    document.getElementById('res-form').style.display='none';
-    return;
-  }
-  document.getElementById('res-none').style.display='none';
-  document.getElementById('res-form').style.display='';
-  document.getElementById('res-ptlbl').textContent=(S.active?S.active.fn+' '+S.active.ln:'')+' · '+S.accn;
-  const tests=orderedTests().filter(t=>t.code!=='UA');
-  const tb=document.getElementById('res-tbody');
-  tb.innerHTML='';
-  tests.forEach(test=>{
-    const hr=document.createElement('tr');
-    hr.className='tbl-section';
-    hr.innerHTML=`<td colspan="5">${test.name} (${test.code})</td>`;
-    tb.appendChild(hr);
-    test.comps.forEach(c=>{
-      const key=test.code+'__'+c.n;
-      const ex=S.results[key]||'';
-      const sex=S.active?S.active.sex:'M';
-      const ref=sex==='F'?c.rF:c.rM;
-      const tr=document.createElement('tr');
-      if(c.txt){
-        tr.innerHTML=`<td style="padding-left:14px;">${c.n}</td>
-          <td><input type="text" value="${ex}" onchange="setRes('${key}',this.value,null,null,null,null,true)" style="width:120px;font-size:13px;"></td>
-          <td></td><td style="color:var(--text-secondary);font-size:12px;">${Array.isArray(ref)?ref[0]:ref}</td><td id="fl-${key}"></td>`;
-      } else {
-        const lo=ref[0],hi=ref[1],cL=c.cL||null,cH=c.cH||null;
-        tr.innerHTML=`<td style="padding-left:14px;">${c.n}</td>
-          <td><input type="number" class="ri" value="${ex}" step="0.01" onchange="setRes('${key}',this.value,${lo},${hi},${cL},${cH},false)" placeholder="—" style="font-family:var(--mono);width:90px;text-align:right;"></td>
-          <td style="color:var(--text-secondary);font-size:12px;">${c.u}</td>
-          <td style="color:var(--text-secondary);font-size:12px;">${lo} – ${hi}</td>
-          <td id="fl-${key}"></td>`;
-      }
-      tb.appendChild(tr);
-    });
-  });
-}
-
-function setRes(key,val,lo,hi,cL,cH,txt) {
-  S.results[key]=val;
-  const el=document.getElementById('fl-'+key);
-  if(!el||txt) return;
-  const v=parseFloat(val);
-  if(isNaN(v)){el.innerHTML='';return;}
-  if((cL!=null&&v<=cL)||(cH!=null&&v>=cH)){el.innerHTML='<span class="f-crit">CRITICAL</span>';updateCritBanner();}
-  else if(lo!=null&&v<lo)el.innerHTML='<span class="f-l">L</span>';
-  else if(hi!=null&&v>hi)el.innerHTML='<span class="f-h">H</span>';
-  else el.innerHTML='';
-}
-
-function updateCritBanner() {
-  const crits=[];
-  orderedTests().forEach(t=>{
-    t.comps.forEach(c=>{
-      if(c.txt)return;
-      const v=parseFloat(S.results[t.code+'__'+c.n]);
-      if(isNaN(v))return;
-      if((c.cL!=null&&v<=c.cL)||(c.cH!=null&&v>=c.cH)) crits.push(c.n+' = '+v+' '+c.u);
-    });
-  });
-  S.critN=crits.length;
-  const a=document.getElementById('crit-area');
-  a.innerHTML=crits.length?`<div class="crit-banner">
-    <i class="ti ti-alert-triangle"></i>
-    <div><strong>Critical Value(s) Detected</strong><br>${crits.join(' · ')}<br>
-    <small style="opacity:0.8;">Notify ordering provider immediately per policy.</small></div>
-  </div>`:'';
-  updateDash();
-}
-
-function verifyResults() {
-  document.getElementById('res-badge').textContent='Final — Verified';
-  document.getElementById('res-badge').className='badge b-green';
-  if(S.active) S.active.status='Results Verified';
-  S.resFiled=true; S.resTs=new Date().toLocaleString();
-  toast('Results verified and released'); updateDash(); renderPtTable();
-}
-
-async function aiInterpret() {
-  const a=document.getElementById('ai-area');
-  a.style.display='';
-  document.getElementById('ai-think').style.display='flex';
-  document.getElementById('ai-text').style.display='none';
-  const pt=S.active;
-  const lines=[];
-  orderedTests().forEach(t=>t.comps.forEach(c=>{
-    const k=t.code+'__'+c.n; if(S.results[k])lines.push(`${c.n}: ${S.results[k]} ${c.u||''}`);
-  }));
-  const prompt=`You are a clinical laboratory educator for MLA students at Red Deer Polytechnic, Alberta.
-Patient: ${pt?pt.sex:''}, DOB ${pt?pt.dob:''}. Clinical notes: ${pt?pt.notes:'(none)'}
-Results:\n${lines.join('\n')}
-Provide: 1) Brief pattern interpretation, 2) Out-of-range values and significance, 3) Critical values and notification urgency, 4) 1-2 differentials, 5) Suggested follow-up tests.
-~150-200 words. Educational tone for MLA students.`;
-  try {
-    const r=await apiCall(prompt);
-    document.getElementById('ai-think').style.display='none';
-    document.getElementById('ai-text').style.display='';
-    document.getElementById('ai-text').textContent=r;
-  } catch(e) {
-    document.getElementById('ai-think').style.display='none';
-    document.getElementById('ai-text').style.display='';
-    document.getElementById('ai-text').textContent='AI error: '+e.message;
-  }
-}
-
-// ============================================================
-// URINALYSIS
-// ============================================================
-function renderUA() {
-  if(!S.accnOk){
-    document.getElementById('ua-none').style.display='';
-    document.getElementById('ua-form').style.display='none';
-    return;
-  }
-  document.getElementById('ua-none').style.display='none';
-  document.getElementById('ua-form').style.display='';
-  document.getElementById('ua-ptlbl').textContent=(S.active?S.active.fn+' '+S.active.ln:'')+' · '+S.accn;
-  if(S.uaFiled){
-    document.getElementById('ua-badge').textContent='Filed';
-    document.getElementById('ua-badge').className='badge b-green';
-  }
-}
-
-function flagSel(sel, flagId, normalVals) {
-  const el=document.getElementById(flagId);
-  if(!el)return;
-  const row=sel.closest('.ua-row');
-  if(!sel.value){el.innerHTML='';if(row)row.classList.remove('ua-abn');return;}
-  if(!normalVals.includes(sel.value)){
-    el.innerHTML='<span class="f-h" style="font-size:11px;">ABN</span>';
-    if(row)row.classList.add('ua-abn');
-  } else {
-    el.innerHTML='';
-    if(row)row.classList.remove('ua-abn');
-  }
-}
-
-function flagSelNum(sel, flagId, lo, hi) {
-  const el=document.getElementById(flagId);
-  if(!el)return;
-  const row=sel.closest('.ua-row');
-  const v=parseFloat(sel.value);
-  if(isNaN(v)){el.innerHTML='';if(row)row.classList.remove('ua-abn');return;}
-  if(v<lo||v>hi){
-    el.innerHTML=`<span class="${v<lo?'f-l':'f-h'}" style="font-size:11px;">${v<lo?'L':'H'}</span>`;
-    if(row)row.classList.add('ua-abn');
-  } else {el.innerHTML='';if(row)row.classList.remove('ua-abn');}
-}
-
-function flagMicro(sel, flagId, abnVals) {
-  const el=document.getElementById(flagId);
-  if(!el)return;
-  if(abnVals.includes(sel.value)) el.innerHTML='<span class="f-h" style="font-size:11px;color:var(--red);">ABN</span>';
-  else el.innerHTML='';
-}
-
-function collectUA() {
-  const g=id=>document.getElementById(id)?document.getElementById(id).value:'';
-  return {
-    colour:g('ua-colour'),clarity:g('ua-clarity'),odour:g('ua-odour'),volume:g('ua-vol'),
-    ph:g('ua-ph'),sg:g('ua-sg'),glucose:g('ua-glucose'),protein:g('ua-protein'),
-    blood:g('ua-blood'),le:g('ua-le'),nitrite:g('ua-nitrite'),ketones:g('ua-ketones'),
-    bilirubin:g('ua-bili'),urobilinogen:g('ua-urobili'),
-    rbc:g('ua-rbc'),wbc:g('ua-wbc'),epi:g('ua-epi'),
-    casts:g('ua-casts'),bacteria:g('ua-bacteria'),crystals:g('ua-crystals'),yeast:g('ua-yeast'),
-    comment:g('ua-comment'),tech:g('ua-tech'),instrument:g('ua-instr')
-  };
-}
-
-function reportUA() {
-  S.uaVals=collectUA();
-  S.uaFiled=true; S.uaTs=new Date().toLocaleString();
-  document.getElementById('ua-badge').textContent='Filed';
-  document.getElementById('ua-badge').className='badge b-green';
-  if(S.active) S.active.status='UA Filed';
-  toast('UA reported to patient file'); updateDash(); renderPtTable();
-}
-
-async function aiUA() {
-  const area=document.getElementById('ua-ai-area');
-  area.style.display='';
-  document.getElementById('ua-ai-think').style.display='flex';
-  document.getElementById('ua-ai-text').style.display='none';
-  const v=collectUA();
-  const pt=S.active;
-  const lines=Object.entries(v).filter(([k,val])=>val&&!['tech','instrument','comment'].includes(k)).map(([k,val])=>`${k}: ${val}`).join('\n');
-  const prompt=`You are a clinical laboratory educator for MLA students at Red Deer Polytechnic, Alberta.
-Patient: ${pt?pt.sex:''}, DOB ${pt?pt.dob:''}. Clinical notes: ${pt?pt.notes:'(none)'}
-Urinalysis results:\n${lines}${v.comment?'\nComment: '+v.comment:''}
-Interpret educationally: 1) Macroscopic findings, 2) Dipstick abnormalities and significance, 3) Microscopic correlations, 4) Overall pattern/diagnosis to consider, 5) Suggested follow-up.
-~150-200 words. Educational tone for MLA students.`;
-  try {
-    const r=await apiCall(prompt);
-    document.getElementById('ua-ai-think').style.display='none';
-    document.getElementById('ua-ai-text').style.display='';
-    document.getElementById('ua-ai-text').textContent=r;
-  } catch(e) {
-    document.getElementById('ua-ai-think').style.display='none';
-    document.getElementById('ua-ai-text').style.display='';
-    document.getElementById('ua-ai-text').textContent='AI error: '+e.message;
-  }
-}
-
-// ============================================================
-// PATIENT FILE
-// ============================================================
-function renderFile() {
-  if(!S.active){
-    document.getElementById('file-none').style.display='';
-    document.getElementById('file-content').style.display='none';
-    return;
-  }
-  document.getElementById('file-none').style.display='none';
-  document.getElementById('file-content').style.display='';
-  const pt=S.active;
-  document.getElementById('file-ptname').textContent=pt.fn+' '+pt.ln;
-  document.getElementById('file-ptmeta').textContent='DOB: '+pt.dob+' · Sex: '+pt.sex+' · AHC: '+pt.hcn;
-  document.getElementById('file-ptaccn').innerHTML='Accession: <strong>'+S.accn+'</strong><br>MD: '+pt.md+'<br>'+pt.ward;
-  const has=S.uaFiled||S.resFiled;
-  document.getElementById('file-empty').style.display=has?'none':'';
-  if(S.uaFiled){
-    document.getElementById('file-ua').style.display='';
-    document.getElementById('file-ua-ts').textContent='Reported: '+S.uaTs+(S.uaVals.tech?' · '+S.uaVals.tech:'');
-    buildUAReport();
-  } else document.getElementById('file-ua').style.display='none';
-  if(S.resFiled){
-    document.getElementById('file-results').style.display='';
-    document.getElementById('file-res-ts').textContent='Verified: '+S.resTs;
-    buildResReport();
-  } else document.getElementById('file-results').style.display='none';
-}
-
-function buildUAReport() {
-  const r=S.uaVals;
-  const nml={
-    colour:['Yellow','Pale Yellow','Dark Yellow'],clarity:['Clear','Slightly Hazy'],
-    glucose:['Negative'],protein:['Negative','Trace'],blood:['Negative'],
-    le:['Negative'],nitrite:['Negative'],ketones:['Negative'],bilirubin:['Negative'],
-    urobilinogen:['Normal','0.2 EU/dL']
-  };
-  const microAbn=['6-10','11-20','21-50','>50','TNTC','Rare','Few','Moderate','Many',
-    'Granular casts','Waxy casts','RBC casts','WBC casts','Fatty casts','Broad/renal failure casts'];
-  function abn(key,val){
-    if(!val)return false;
-    if(nml[key])return!nml[key].includes(val);
-    if(['ph','sg'].includes(key)){const v=parseFloat(val);const r={ph:[4.5,8.5],sg:[1.003,1.030]};return v<r[key][0]||v>r[key][1];}
-    return microAbn.includes(val);
-  }
-  const sections=[
-    {t:'Macroscopic',rows:[['Colour',r.colour,'colour'],['Clarity',r.clarity,'clarity'],['Odour',r.odour,null],['Volume (mL)',r.volume,null]]},
-    {t:'Chemical (Dipstick)',rows:[['pH',r.ph,'ph'],['Specific Gravity',r.sg,'sg'],['Glucose',r.glucose,'glucose'],['Protein',r.protein,'protein'],['Blood / Hgb',r.blood,'blood'],['Leukocyte Esterase',r.le,'le'],['Nitrite',r.nitrite,'nitrite'],['Ketones',r.ketones,'ketones'],['Bilirubin',r.bilirubin,'bilirubin'],['Urobilinogen',r.urobilinogen,'urobilinogen']]},
-    {t:'Microscopic',rows:[['RBCs/HPF',r.rbc,'rbc'],['WBCs/HPF',r.wbc,'wbc'],['Epithelial Cells',r.epi,null],['Casts/LPF',r.casts,'casts'],['Bacteria',r.bacteria,'bacteria'],['Crystals',r.crystals,null],['Yeast',r.yeast,'yeast']]},
-  ];
-  let html='<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Patient: <strong style="color:var(--text-primary);">'+(S.active?S.active.fn+' '+S.active.ln:'')+'</strong></div>';
-  sections.forEach(sec=>{
-    html+=`<div class="rpt-section">${sec.t}</div>`;
-    sec.rows.forEach(([lbl,val,key])=>{
-      if(!val)return;
-      const isAbn=key?abn(key,val):false;
-      html+=`<div class="rpt-row"><span style="color:var(--text-secondary);">${lbl}</span>
-        <span class="${isAbn?'rpt-abn':''}">${val}${isAbn?' <span style="font-size:10px;background:var(--red-lt);color:var(--red);padding:1px 5px;border-radius:3px;">ABN</span>':''}</span>
-      </div>`;
-    });
-  });
-  if(r.comment) html+=`<div style="margin-top:10px;padding:8px;background:var(--bg-secondary);border-radius:var(--radius-md);font-size:12px;"><strong>Comment:</strong> ${r.comment}</div>`;
-  if(r.instrument) html+=`<div style="margin-top:6px;font-size:11px;color:var(--text-secondary);">Method: ${r.instrument}</div>`;
-  document.getElementById('file-ua-body').innerHTML=html;
-}
-
-function buildResReport() {
-  const tests=orderedTests().filter(t=>t.code!=='UA');
-  const pt=S.active;
-  let html='<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Patient: <strong style="color:var(--text-primary);">'+(pt?pt.fn+' '+pt.ln:'')+'</strong></div>';
-  tests.forEach(test=>{
-    const hasRes=test.comps.some(c=>S.results[test.code+'__'+c.n]);
-    if(!hasRes)return;
-    html+=`<div class="rpt-section">${test.name}</div>`;
-    test.comps.forEach(c=>{
-      const key=test.code+'__'+c.n;
-      const val=S.results[key];
-      if(!val)return;
-      const sex=pt?pt.sex:'M'; const ref=sex==='F'?c.rF:c.rM;
-      let flag='',cls='';
-      if(!c.txt){
-        const v=parseFloat(val),lo=ref[0],hi=ref[1];
-        if(!isNaN(v)&&((c.cL!=null&&v<=c.cL)||(c.cH!=null&&v>=c.cH))){flag='CRITICAL';cls='f-crit';}
-        else if(!isNaN(v)&&v<lo){flag='L';cls='f-l';}
-        else if(!isNaN(v)&&v>hi){flag='H';cls='f-h';}
-      }
-      html+=`<div class="rpt-row">
-        <span style="color:var(--text-secondary);padding-left:12px;">${c.n}</span>
-        <span>${val} <span style="color:var(--text-tertiary);font-size:11px;">${c.u||''}</span>
-        ${flag?`<span class="${cls}" style="margin-left:4px;">${flag}</span>`:''}</span></div>`;
-    });
-  });
-  document.getElementById('file-results-body').innerHTML=html;
-}
-
-// ============================================================
-// PATIENT REG
-// ============================================================
-function regPt() {
-  const ln=document.getElementById('p-ln').value.trim();
-  const fn=document.getElementById('p-fn').value.trim();
-  if(!ln||!fn){toast('Enter patient name.','err');return;}
-  const pt={id:Date.now(),ln,fn,
-    dob:document.getElementById('p-dob').value,
-    sex:document.getElementById('p-sex').value||'M',
-    hcn:document.getElementById('p-hcn').value,
-    md:document.getElementById('p-md').value,
-    ward:document.getElementById('p-ward').value,
-    notes:document.getElementById('p-notes').value,
-    doc:document.getElementById('p-doc').value||new Date().toLocaleString(),
-    status:'Registered'
-  };
-  S.patients.push(pt); S.active=pt;
-  S.orders=[]; S.accnOk=false; S.results={}; S.uaVals={}; S.uaFiled=false; S.resFiled=false; S.critN=0;
-  document.getElementById('tb-name').textContent=fn+' '+ln;
-  document.getElementById('tb-name').style.color='var(--text-primary)';
-  renderPtTable(); updateDash();
-  toast('Patient registered: '+fn+' '+ln);
-  go('order');
-}
-
-function clearPtForm() {
-  ['p-ln','p-fn','p-dob','p-hcn','p-md','p-ward','p-notes','p-doc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('p-sex').value='';
-}
-
-function renderPtTable() {
-  if(!S.patients.length){
-    document.getElementById('pt-empty').style.display='';
-    document.getElementById('pt-tbl').style.display='none';
-    return;
-  }
-  document.getElementById('pt-empty').style.display='none';
-  document.getElementById('pt-tbl').style.display='';
-  document.getElementById('pt-tbody').innerHTML=S.patients.map(pt=>`
-    <tr style="cursor:pointer;" onclick="selPt(${pt.id})">
-      <td style="font-family:var(--mono);font-size:12px;">${S.active&&S.active.id===pt.id?S.accn:'—'}</td>
-      <td><strong>${pt.fn} ${pt.ln}</strong></td>
-      <td style="font-size:12px;color:var(--text-secondary);">${pt.dob} / ${pt.sex}</td>
-      <td style="font-size:12px;">${pt.md||'—'}</td>
-      <td><span class="badge ${pt.status==='Results Verified'||pt.status==='UA Filed'?'b-green':pt.status==='Registered'?'b-gray':'b-blue'}">${pt.status}</span></td>
-      <td><button class="btn btn-sm" onclick="event.stopPropagation();selPt(${pt.id})">Select</button></td>
-    </tr>`).join('');
-}
-
-function selPt(id) {
-  S.active=S.patients.find(p=>p.id===id);
-  if(S.active){document.getElementById('tb-name').textContent=S.active.fn+' '+S.active.ln;toast('Patient selected');}
-}
-
-function updateDash() {
-  document.getElementById('d-pts').textContent=S.patients.length;
-  document.getElementById('d-pend').textContent=(S.accnOk&&!S.uaFiled&&!S.resFiled)?1:0;
-  document.getElementById('d-crit').textContent=S.critN||0;
-  document.getElementById('d-crit').style.color=S.critN>0?'var(--red)':'var(--text-primary)';
-  document.getElementById('d-done').textContent=S.patients.filter(p=>p.status==='Results Verified'||p.status==='UA Filed').length;
-}
-
-// ============================================================
-// AI SCENARIO
-// ============================================================
-async function genScenario() {
-  document.getElementById('sc-think').style.display='flex';
-  document.getElementById('sc-out').style.display='none';
-  document.getElementById('sc-load').style.display='none';
-  const type=document.getElementById('sc-type').value;
-  const cx=document.getElementById('sc-cx').value;
-  const prompt=`You are helping MLA students at Red Deer Polytechnic practice with a Lab Information System.
-Generate a realistic fictional patient scenario for a ${type} workup with ${cx} results.
-Respond ONLY with a JSON object (no markdown, no backticks, no preamble):
-{"fn":"FirstName","ln":"LastName","dob":"YYYY-MM-DD","sex":"M or F","hcn":"NNNN-NNNNN-NN","md":"Dr. Name","ward":"ED / 3W / Outpatient","notes":"2-3 sentence clinical presentation","orders":["test codes"],"summary":"1-2 paragraph educational summary with expected findings and specific abnormal values to look for"}
-Only use codes: CBC,DIFF,RETIC,BMP,CMP,LIPID,PTINR,APTT,FIBR,DDIM,UA,UCX,BCX,SWAB,STREP,TS,XMATCH,DAT,TSH,FT4,TROP,BNP,BHCG,IRON. Use Albertan context (Alberta Health Card format, Canadian hospitals).`;
-  try {
-    const text=await apiCall(prompt);
-    const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
-    S.scenData=parsed;
-    document.getElementById('sc-think').style.display='none';
-    document.getElementById('sc-out').style.display='';
-    document.getElementById('sc-out').textContent=parsed.summary||text;
-    document.getElementById('sc-load').style.display='';
-  } catch(e) {
-    document.getElementById('sc-think').style.display='none';
-    document.getElementById('sc-out').style.display='';
-    document.getElementById('sc-out').textContent='Error: '+(e.message||'Could not generate scenario.');
-  }
-}
-
-function loadScenario() {
-  const s=S.scenData; if(!s)return;
-  const fm={fn:'p-fn',ln:'p-ln',dob:'p-dob',hcn:'p-hcn',md:'p-md',ward:'p-ward',notes:'p-notes'};
-  for(const [k,id] of Object.entries(fm)){const el=document.getElementById(id);if(el)el.value=s[k]||'';}
-  document.getElementById('p-sex').value=s.sex||'';
-  document.getElementById('p-doc').value=new Date().toISOString().slice(0,16).replace('T',' ');
-  if(s.orders){
-    S.orders=[];
-    document.querySelectorAll('.oi').forEach(e=>e.classList.remove('sel'));
-    s.orders.forEach(code=>{S.orders.push(code);const el=document.getElementById('oi-'+code);if(el)el.classList.add('sel');});
-  }
-  go('patient');
-  toast('Scenario loaded — review and register the patient');
-}
-
-// ============================================================
-// QC
-// ============================================================
-function initQC() {
-  const a=document.getElementById('qc-analyte').value;
-  const p=QCP[a];
-  document.getElementById('qc-mean').textContent=p.mean.toFixed(2)+' '+p.u;
-  document.getElementById('qc-1sd').textContent='±'+p.sd.toFixed(3);
-  document.getElementById('qc-2sd').textContent='±'+(p.sd*2).toFixed(3);
-  document.getElementById('qc-3sd').textContent='±'+(p.sd*3).toFixed(3);
-  renderLJ();
-}
-
-function renderLJ() {
-  const a=document.getElementById('qc-analyte').value;
-  const p=QCP[a];
-  const pts=S.qcData.filter(d=>d.a===a);
-  const ctx=document.getElementById('lj-canvas').getContext('2d');
-  if(S.ljChart){S.ljChart.destroy();S.ljChart=null;}
-  const data=pts.map(d=>d.v);
-  const labels=pts.map((_,i)=>i+1);
-  const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
-  const tc=isDark?'#9b9b96':'#6b6b67';
-  const gc=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)';
-  const ptC=pts.map(d=>{const z=Math.abs((d.v-p.mean)/p.sd);return z>=3?'#A32D2D':z>=2?'#BA7517':'#0F6E56';});
-  const ptS=pts.map(d=>Math.abs((d.v-p.mean)/p.sd)>=3?'triangle':'circle');
-  const n=Math.max(labels.length,2);
-  S.ljChart=new Chart(ctx,{type:'line',data:{labels,datasets:[
-    {data,borderColor:'#185FA5',borderWidth:1.5,pointBackgroundColor:ptC,pointBorderColor:ptC,pointStyle:ptS,pointRadius:6,tension:0},
-    {data:Array(n).fill(p.mean),borderColor:'#0F6E56',borderWidth:1,pointRadius:0},
-    {data:Array(n).fill(+(p.mean+p.sd*2).toFixed(4)),borderColor:'#BA7517',borderWidth:1,borderDash:[5,5],pointRadius:0},
-    {data:Array(n).fill(+(p.mean-p.sd*2).toFixed(4)),borderColor:'#BA7517',borderWidth:1,borderDash:[5,5],pointRadius:0},
-    {data:Array(n).fill(+(p.mean+p.sd*3).toFixed(4)),borderColor:'#A32D2D',borderWidth:1,borderDash:[2,5],pointRadius:0},
-    {data:Array(n).fill(+(p.mean-p.sd*3).toFixed(4)),borderColor:'#A32D2D',borderWidth:1,borderDash:[2,5],pointRadius:0},
-  ]},options:{animation:false,responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const d=pts[c.dataIndex];if(!d)return '';const z=((d.v-p.mean)/p.sd).toFixed(2);return `Value: ${d.v} | Z: ${z}`;} }}},
-    scales:{x:{ticks:{color:tc,font:{size:11}},grid:{color:gc}},
-      y:{ticks:{color:tc,font:{size:11}},grid:{color:gc},min:+(p.mean-p.sd*3.5).toFixed(4),max:+(p.mean+p.sd*3.5).toFixed(4)}}}});
-}
-
-function addQC() {
-  const v=parseFloat(document.getElementById('qc-val').value);
-  if(isNaN(v)){toast('Enter a numeric value.','err');return;}
-  const a=document.getElementById('qc-analyte').value;
-  const lv=document.getElementById('qc-level').value;
-  S.qcData.push({a,lv,v,t:new Date().toLocaleTimeString()});
-  westgard(a); renderLJ(); renderQCLog();
-  document.getElementById('qc-val').value='';
-}
-
-function simQC() {
-  const a=document.getElementById('qc-analyte').value;
-  const lv=document.getElementById('qc-level').value;
-  const p=QCP[a];
-  for(let i=0;i<20;i++){
-    const z=(Math.random()-0.5)*4;
-    S.qcData.push({a,lv,v:+(p.mean+z*p.sd).toFixed(3),t:'Sim '+(i+1)});
-  }
-  westgard(a); renderLJ(); renderQCLog();
-}
-
-function clearQC() {
-  S.qcData=[];
-  const b=document.getElementById('qc-badge');
-  b.textContent='Westgard Rules'; b.className='badge b-gray';
-  document.getElementById('qc-violations').innerHTML='';
-  renderLJ(); renderQCLog();
-}
-
-function westgard(a) {
-  const p=QCP[a]; const pts=S.qcData.filter(d=>d.a===a);
-  const viols=[];
-  pts.forEach((pt,i)=>{
-    const z=(pt.v-p.mean)/p.sd;
-    if(Math.abs(z)>=3) viols.push(`Point ${i+1}: 1₃s violation (z=${z.toFixed(2)})`);
-    if(i>0){const z2=(pts[i-1].v-p.mean)/p.sd;if(Math.abs(z)>=2&&Math.abs(z2)>=2&&Math.sign(z)===Math.sign(z2))viols.push(`Points ${i}–${i+1}: 2₂s warning`);}
-    if(i>=3){const l4=pts.slice(i-3,i+1).map(x=>(x.v-p.mean)/p.sd);if(l4.every(z=>z>1)||l4.every(z=>z<-1))viols.push(`Points ${i-2}–${i+1}: 4₁s warning`);}
-  });
-  const b=document.getElementById('qc-badge');
-  const area=document.getElementById('qc-violations');
-  if(viols.length){
-    b.textContent='Rule Violation!'; b.className='badge b-red';
-    area.innerHTML=viols.map(v=>`<div style="color:var(--red);font-size:12px;margin-top:3px;"><i class="ti ti-alert-triangle"></i> ${v}</div>`).join('');
-  } else if(pts.length){
-    b.textContent='In control'; b.className='badge b-green'; area.innerHTML='';
-  }
-}
-
-function renderQCLog() {
-  const a=document.getElementById('qc-analyte').value;
-  const p=QCP[a]; const pts=S.qcData.filter(d=>d.a===a);
-  const tb=document.getElementById('qc-log');
-  if(!pts.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:16px;">No QC data entered.</td></tr>';return;}
-  tb.innerHTML=pts.map((d,i)=>{
-    const z=(d.v-p.mean)/p.sd;
-    const st=Math.abs(z)>=3?'<span class="badge b-red">Reject</span>':Math.abs(z)>=2?'<span class="badge b-amber">Warning</span>':'<span class="badge b-green">Accept</span>';
-    return `<tr><td>${i+1}</td><td style="font-size:11px;">${d.t}</td><td>${d.a}</td><td>${d.lv}</td>
-      <td style="font-family:var(--mono);">${d.v}</td><td style="font-family:var(--mono);">${p.mean}</td>
-      <td style="font-family:var(--mono);color:${Math.abs(z)>=3?'var(--red)':Math.abs(z)>=2?'var(--amber)':'var(--teal)'}">${z.toFixed(2)}</td>
-      <td>${st}</td></tr>`;
-  }).join('');
-}
-
-// ============================================================
-// API HELPER — set PROXY_URL to your Cloudflare Worker URL
-// ============================================================
-// ── PROXY URL ── Set this to your Cloudflare Worker URL after deployment ──
-  const PROXY_URL = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
-
-async function apiCall(prompt) {
-  const resp=await fetch(PROXY_URL,{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-    },
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})
-  });
-  if(!resp.ok){const e=await resp.json();throw new Error(e.error?.message||'API error '+resp.status);}
-  const data=await resp.json();
-  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-}
-
-// ============================================================
-// INIT
-// ============================================================
-buildMenus();
-initQC();
-updateDash();
-</script>
-</body>
-</html>
+  document.getElementById('recv-nopt').style.display='none';
+  document.getElementById('recv-form').style.display='';
+  // Populate patient info panel
+  document.getElementById('recv-ptname').textContent=S.active.fn+' '+S.active.ln;
+  document.getElementById('recv-dob').textContent=S.active.dob||'—';
+  document.getElementById('recv-hcn').textContent=S.active.hcn||'—';
+  document.getElementById('recv-md').textContent=S.active.md||'—';
+  document.getElementById('recv-priority').textContent=S.active.priority||'Routine';
+  document.getElementById('recv-tests').textContent=S.orders.join(', ');
+  // Set received datetime to now
+  const now=new Date();
+  const localIso=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('recv-recvdt').value=localIso;
+  // Special flags
+  renderSpecialFlags('special-flags-are
