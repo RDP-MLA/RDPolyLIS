@@ -139,362 +139,942 @@ tbody tr:hover td{background:#f9f9f7}
   <div class="modal" id="modal-inner"></div>
 </div>
 <script>
-const API_URL="https://rapid-bush-dc12.jacklyn-mireault.workers.dev";
-const S={patients:[],orders:[],results:[],currentPage:"dashboard",testCounter:{H:0,O:0,C:0,U:0,T:0,M:0,R:0},aiMessages:[{role:"assistant",content:"Hello! I am your AI lab interpreter. Paste results here, ask about flags, or click Interpret from any verified report."}],aiLoading:false,_quickOrderPt:null,_aiContext:null};
-const SEX_OPTS=[{val:"M",label:"Male"},{val:"F",label:"Female"},{val:"X",label:"X (Non-binary / Intersex)"},{val:"U",label:"Prefer not to say"}];
-function sexLabel(v){return(SEX_OPTS.find(s=>s.val===v)||{label:v||"?"}).label;}
-function refSex(v){return v==="F"?"F":"M";}
-const REF={
-WBC:{name:"WBC",unit:"x10^9/L",lo:4.5,hi:11.0,critLo:2.0,critHi:30.0,peds:"Neonates: 9-30; children vary"},
-RBC:{name:"RBC",unit:"x10^12/L",lo:4.2,hi:5.4,critLo:null,critHi:null,peds:"Infants: 3.8-5.5",femLo:3.8,femHi:5.2},
-Hgb:{name:"Hgb",unit:"g/L",lo:135,hi:175,critLo:70,critHi:200,peds:"Neonates: 140-200",femLo:120,femHi:160},
-Hct:{name:"Hct",unit:"L/L",lo:0.40,hi:0.52,critLo:0.20,critHi:0.65,peds:"Neonates: 0.44-0.64",femLo:0.37,femHi:0.47},
-MCV:{name:"MCV",unit:"fL",lo:80,hi:100,critLo:null,critHi:null,peds:"Infants: 70-86"},
-MCH:{name:"MCH",unit:"pg",lo:27,hi:33,critLo:null,critHi:null,peds:"Similar to adult"},
-MCHC:{name:"MCHC",unit:"g/L",lo:315,hi:360,critLo:null,critHi:null,peds:"Similar to adult"},
-RDW:{name:"RDW",unit:"%",lo:11.5,hi:14.5,critLo:null,critHi:null,peds:"Similar to adult"},
-Plt:{name:"Platelets",unit:"x10^9/L",lo:150,hi:400,critLo:50,critHi:1000,peds:"Similar to adult"},
-Neut:{name:"Neutrophils",unit:"x10^9/L",lo:1.8,hi:7.7,critLo:0.5,critHi:null,peds:"Neonates higher"},
-Lymph:{name:"Lymphocytes",unit:"x10^9/L",lo:1.0,hi:4.8,critLo:null,critHi:null,peds:"Children: 2.0-8.0"},
-Mono:{name:"Monocytes",unit:"x10^9/L",lo:0.2,hi:1.0,critLo:null,critHi:null,peds:"Similar to adult"},
-Eos:{name:"Eosinophils",unit:"x10^9/L",lo:0.0,hi:0.5,critLo:null,critHi:null,peds:"Similar to adult"},
-Baso:{name:"Basophils",unit:"x10^9/L",lo:0.0,hi:0.1,critLo:null,critHi:null,peds:"Similar to adult"},
-PT:{name:"PT",unit:"s",lo:11,hi:14,critLo:null,critHi:30,peds:"Similar to adult"},
-INR:{name:"INR",unit:"",lo:0.9,hi:1.1,critLo:null,critHi:4.0,peds:"Similar to adult"},
-aPTT:{name:"aPTT",unit:"s",lo:25,hi:38,critLo:null,critHi:80,peds:"Similar to adult"},
-Fibrinogen:{name:"Fibrinogen",unit:"g/L",lo:2.0,hi:4.0,critLo:1.0,critHi:null,peds:"Similar to adult"},
-TT:{name:"Thrombin Time",unit:"s",lo:10,hi:15,critLo:null,critHi:null,peds:"Similar to adult"},
-Na:{name:"Sodium",unit:"mmol/L",lo:136,hi:145,critLo:120,critHi:160,peds:"Similar to adult"},
-K:{name:"Potassium",unit:"mmol/L",lo:3.5,hi:5.0,critLo:2.8,critHi:6.5,peds:"Neonates: 3.7-5.9"},
-Cl:{name:"Chloride",unit:"mmol/L",lo:98,hi:107,critLo:80,critHi:120,peds:"Similar to adult"},
-CO2:{name:"CO2 Bicarb",unit:"mmol/L",lo:22,hi:29,critLo:10,critHi:40,peds:"Infants: 20-26"},
-BUN:{name:"Urea BUN",unit:"mmol/L",lo:2.5,hi:8.0,critLo:null,critHi:35,peds:"Children: 1.8-6.4"},
-Cr:{name:"Creatinine",unit:"umol/L",lo:62,hi:106,critLo:null,critHi:700,peds:"Children: 20-65",femLo:44,femHi:80},
-Gluc:{name:"Glucose",unit:"mmol/L",lo:3.9,hi:6.1,critLo:2.2,critHi:25,peds:"Neonates: 1.7-4.0"},
-Ca:{name:"Calcium total",unit:"mmol/L",lo:2.12,hi:2.62,critLo:1.5,critHi:3.5,peds:"Neonates: 1.75-3.0"},
-Mg:{name:"Magnesium",unit:"mmol/L",lo:0.75,hi:1.0,critLo:0.4,critHi:2.0,peds:"Similar to adult"},
-Phos:{name:"Phosphate",unit:"mmol/L",lo:0.81,hi:1.45,critLo:null,critHi:null,peds:"Children: 1.3-2.3"},
-ALT:{name:"ALT",unit:"U/L",lo:7,hi:56,critLo:null,critHi:null,peds:"Similar to adult"},
-AST:{name:"AST",unit:"U/L",lo:10,hi:40,critLo:null,critHi:null,peds:"Children: 15-55"},
-ALP:{name:"ALP",unit:"U/L",lo:44,hi:147,critLo:null,critHi:null,peds:"Children: 100-350"},
-GGT:{name:"GGT",unit:"U/L",lo:8,hi:61,critLo:null,critHi:null,peds:"Neonates much higher"},
-TBili:{name:"Total Bilirubin",unit:"umol/L",lo:3,hi:21,critLo:null,critHi:300,peds:"Neonates: up to 200 physiologic"},
-Alb:{name:"Albumin",unit:"g/L",lo:35,hi:50,critLo:null,critHi:null,peds:"Infants: 28-44"},
-TP:{name:"Total Protein",unit:"g/L",lo:60,hi:80,critLo:null,critHi:null,peds:"Infants: 44-76"},
-CK:{name:"CK",unit:"U/L",lo:40,hi:320,critLo:null,critHi:null,peds:"Similar to adult",femLo:25,femHi:200},
-Trop:{name:"Troponin I",unit:"ng/L",lo:0,hi:34,critLo:null,critHi:null,peds:"Similar to adult"},
-TSH:{name:"TSH",unit:"mIU/L",lo:0.4,hi:4.0,critLo:null,critHi:null,peds:"Neonates: 1-39 first week"},
-UA_SG:{name:"Specific Gravity",unit:"",lo:1.005,hi:1.030,peds:"Similar"},
-UA_pH:{name:"pH",unit:"",lo:4.5,hi:8.0,peds:"Similar"},
-UA_Prot:{name:"Protein",unit:"",qualitative:true,options:["Negative","Trace","1+","2+","3+","4+"],peds:"Neg expected"},
-UA_Gluc:{name:"Glucose",unit:"",qualitative:true,options:["Negative","Trace","1+","2+","3+"],peds:"Neg expected"},
-UA_Ket:{name:"Ketones",unit:"",qualitative:true,options:["Negative","Trace","1+","2+","3+"],peds:"Neg expected"},
-UA_Blood:{name:"Blood",unit:"",qualitative:true,options:["Negative","Trace","1+","2+","3+"],peds:"Neg expected"},
-UA_Leuk:{name:"Leukocytes",unit:"",qualitative:true,options:["Negative","Trace","1+","2+","3+"],peds:"Neg expected"},
-UA_Nit:{name:"Nitrites",unit:"",qualitative:true,options:["Negative","Positive"],peds:"Neg expected"},
-UA_Bili:{name:"Bilirubin",unit:"",qualitative:true,options:["Negative","1+","2+","3+"],peds:"Neg expected"},
-UA_Urobili:{name:"Urobilinogen",unit:"EU/dL",lo:0.1,hi:1.0,peds:"Similar"},
-UA_WBC:{name:"WBC micro",unit:"/hpf",lo:0,hi:5,peds:"Similar"},
-UA_RBC:{name:"RBC micro",unit:"/hpf",lo:0,hi:3,peds:"Similar"},
-UA_Casts:{name:"Casts",unit:"/lpf",qualitative:true,options:["None","Hyaline","Granular","RBC casts","WBC casts","Waxy","Fatty"],peds:"Neg expected"},
-ABO:{name:"ABO Group",unit:"",qualitative:true,options:["A","B","AB","O"],peds:""},
-Rh:{name:"Rh Type",unit:"",qualitative:true,options:["Positive","Negative"],peds:""},
-Ab_Sc:{name:"Antibody Screen",unit:"",qualitative:true,options:["Negative","Positive"],peds:""},
-XM:{name:"Crossmatch",unit:"",qualitative:true,options:["Compatible","Incompatible","N/A"],peds:""},
-DAT:{name:"Direct Antiglobulin Test",unit:"",qualitative:true,options:["Negative","Positive (IgG)","Positive (C3d)","Positive (Both)"],peds:""},
-Hgb_T:{name:"Hgb pre-transfusion",unit:"g/L",lo:120,hi:175,critLo:60,critHi:null,peds:"See Hgb"}
+
+const API_URL = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
+
+const S = {
+  patients: [], orders: [], results: [],
+  currentPage: 'dashboard',
+  testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
+  aiMessages: [{role:'assistant',content:'Hello! I am your AI lab interpreter. Ask about results, flags, or click Interpret from any verified report.'}],
+  aiLoading: false,
+  _quickOrderPt: null,
+  _aiContext: null
 };
-const PANELS={
-CBC:{name:"CBC",dept:"H",tests:["WBC","RBC","Hgb","Hct","MCV","MCH","MCHC","RDW","Plt"],tube:"EDTA (lavender)"},
-"CBC+Diff":{name:"CBC + Differential",dept:"H",tests:["WBC","RBC","Hgb","Hct","MCV","MCH","MCHC","RDW","Plt","Neut","Lymph","Mono","Eos","Baso"],tube:"EDTA (lavender)"},
-PT_INR:{name:"PT/INR",dept:"O",tests:["PT","INR"],tube:"Citrate (blue)"},
-aPTT:{name:"aPTT",dept:"O",tests:["aPTT"],tube:"Citrate (blue)"},
-CoagFull:{name:"Full Coagulation Panel",dept:"O",tests:["PT","INR","aPTT","Fibrinogen","TT"],tube:"Citrate (blue)"},
-BMP:{name:"Basic Metabolic Panel",dept:"C",tests:["Na","K","Cl","CO2","BUN","Cr","Gluc","Ca"],tube:"SST (gold) or Li-Hep"},
-CMP:{name:"Comprehensive Metabolic Panel",dept:"C",tests:["Na","K","Cl","CO2","BUN","Cr","Gluc","Ca","ALT","AST","ALP","GGT","TBili","Alb","TP"],tube:"SST (gold) or Li-Hep"},
-LFT:{name:"Liver Function Tests",dept:"C",tests:["ALT","AST","ALP","GGT","TBili","Alb","TP"],tube:"SST (gold)"},
-Electrolytes:{name:"Electrolytes",dept:"C",tests:["Na","K","Cl","CO2"],tube:"SST or Li-Hep"},
-Cardiac:{name:"Cardiac Panel",dept:"C",tests:["Trop","CK"],tube:"SST (gold)"},
-Thyroid:{name:"Thyroid TSH",dept:"C",tests:["TSH"],tube:"SST (gold)"},
-UA_Dip:{name:"UA Dipstick",dept:"U",tests:["UA_SG","UA_pH","UA_Prot","UA_Gluc","UA_Ket","UA_Blood","UA_Leuk","UA_Nit","UA_Bili","UA_Urobili"],tube:"Urine cup"},
-UA_Full:{name:"UA Full",dept:"U",tests:["UA_SG","UA_pH","UA_Prot","UA_Gluc","UA_Ket","UA_Blood","UA_Leuk","UA_Nit","UA_Bili","UA_Urobili","UA_WBC","UA_RBC","UA_Casts"],tube:"Urine cup"},
-TypeScreen:{name:"Type and Screen",dept:"T",tests:["ABO","Rh","Ab_Sc"],tube:"EDTA (pink transfusion)"},
-TypeXM:{name:"Type and Crossmatch",dept:"T",tests:["ABO","Rh","Ab_Sc","XM"],tube:"EDTA (pink transfusion)"},
-DAT_Test:{name:"Direct Antiglobulin Test",dept:"T",tests:["DAT"],tube:"EDTA (pink transfusion)"}
+
+const SEX_OPTS = [
+  {val:'M',label:'Male'},
+  {val:'F',label:'Female'},
+  {val:'X',label:'X (Non-binary / Intersex)'},
+  {val:'U',label:'Prefer not to say'}
+];
+function sexLabel(v){return (SEX_OPTS.find(s=>s.val===v)||{label:v||'?'}).label;}
+function refSex(v){return v==='F'?'F':'M';}
+
+const REF = {
+  WBC:{name:'WBC',unit:'x10^9/L',lo:4.5,hi:11.0,critLo:2.0,critHi:30.0,peds:'Neonates 9-30'},
+  RBC:{name:'RBC',unit:'x10^12/L',lo:4.2,hi:5.4,critLo:null,critHi:null,femLo:3.8,femHi:5.2,peds:'Infants 3.8-5.5'},
+  Hgb:{name:'Hgb',unit:'g/L',lo:135,hi:175,critLo:70,critHi:200,femLo:120,femHi:160,peds:'Neonates 140-200'},
+  Hct:{name:'Hct',unit:'L/L',lo:0.40,hi:0.52,critLo:0.20,critHi:0.65,femLo:0.37,femHi:0.47,peds:'Neonates 0.44-0.64'},
+  MCV:{name:'MCV',unit:'fL',lo:80,hi:100,critLo:null,critHi:null,peds:'Infants 70-86'},
+  MCH:{name:'MCH',unit:'pg',lo:27,hi:33,critLo:null,critHi:null,peds:'Similar to adult'},
+  MCHC:{name:'MCHC',unit:'g/L',lo:315,hi:360,critLo:null,critHi:null,peds:'Similar to adult'},
+  RDW:{name:'RDW',unit:'%',lo:11.5,hi:14.5,critLo:null,critHi:null,peds:'Similar to adult'},
+  Plt:{name:'Platelets',unit:'x10^9/L',lo:150,hi:400,critLo:50,critHi:1000,peds:'Similar to adult'},
+  Neut:{name:'Neutrophils',unit:'x10^9/L',lo:1.8,hi:7.7,critLo:0.5,critHi:null,peds:'Neonates higher'},
+  Lymph:{name:'Lymphocytes',unit:'x10^9/L',lo:1.0,hi:4.8,critLo:null,critHi:null,peds:'Children 2.0-8.0'},
+  Mono:{name:'Monocytes',unit:'x10^9/L',lo:0.2,hi:1.0,critLo:null,critHi:null,peds:'Similar to adult'},
+  Eos:{name:'Eosinophils',unit:'x10^9/L',lo:0.0,hi:0.5,critLo:null,critHi:null,peds:'Similar to adult'},
+  Baso:{name:'Basophils',unit:'x10^9/L',lo:0.0,hi:0.1,critLo:null,critHi:null,peds:'Similar to adult'},
+  PT:{name:'PT',unit:'s',lo:11,hi:14,critLo:null,critHi:30,peds:'Similar to adult'},
+  INR:{name:'INR',unit:'',lo:0.9,hi:1.1,critLo:null,critHi:4.0,peds:'Similar to adult'},
+  aPTT:{name:'aPTT',unit:'s',lo:25,hi:38,critLo:null,critHi:80,peds:'Similar to adult'},
+  Fibrinogen:{name:'Fibrinogen',unit:'g/L',lo:2.0,hi:4.0,critLo:1.0,critHi:null,peds:'Similar to adult'},
+  TT:{name:'Thrombin Time',unit:'s',lo:10,hi:15,critLo:null,critHi:null,peds:'Similar to adult'},
+  Na:{name:'Sodium',unit:'mmol/L',lo:136,hi:145,critLo:120,critHi:160,peds:'Similar to adult'},
+  K:{name:'Potassium',unit:'mmol/L',lo:3.5,hi:5.0,critLo:2.8,critHi:6.5,peds:'Neonates 3.7-5.9'},
+  Cl:{name:'Chloride',unit:'mmol/L',lo:98,hi:107,critLo:80,critHi:120,peds:'Similar to adult'},
+  CO2:{name:'CO2 Bicarb',unit:'mmol/L',lo:22,hi:29,critLo:10,critHi:40,peds:'Infants 20-26'},
+  BUN:{name:'Urea BUN',unit:'mmol/L',lo:2.5,hi:8.0,critLo:null,critHi:35,peds:'Children 1.8-6.4'},
+  Cr:{name:'Creatinine',unit:'umol/L',lo:62,hi:106,critLo:null,critHi:700,femLo:44,femHi:80,peds:'Children 20-65'},
+  Gluc:{name:'Glucose',unit:'mmol/L',lo:3.9,hi:6.1,critLo:2.2,critHi:25,peds:'Neonates 1.7-4.0'},
+  Ca:{name:'Calcium',unit:'mmol/L',lo:2.12,hi:2.62,critLo:1.5,critHi:3.5,peds:'Neonates 1.75-3.0'},
+  Mg:{name:'Magnesium',unit:'mmol/L',lo:0.75,hi:1.0,critLo:0.4,critHi:2.0,peds:'Similar to adult'},
+  Phos:{name:'Phosphate',unit:'mmol/L',lo:0.81,hi:1.45,critLo:null,critHi:null,peds:'Children 1.3-2.3'},
+  ALT:{name:'ALT',unit:'U/L',lo:7,hi:56,critLo:null,critHi:null,peds:'Similar to adult'},
+  AST:{name:'AST',unit:'U/L',lo:10,hi:40,critLo:null,critHi:null,peds:'Children 15-55'},
+  ALP:{name:'ALP',unit:'U/L',lo:44,hi:147,critLo:null,critHi:null,peds:'Children 100-350'},
+  GGT:{name:'GGT',unit:'U/L',lo:8,hi:61,critLo:null,critHi:null,peds:'Neonates much higher'},
+  TBili:{name:'Total Bilirubin',unit:'umol/L',lo:3,hi:21,critLo:null,critHi:300,peds:'Neonates up to 200'},
+  Alb:{name:'Albumin',unit:'g/L',lo:35,hi:50,critLo:null,critHi:null,peds:'Infants 28-44'},
+  TP:{name:'Total Protein',unit:'g/L',lo:60,hi:80,critLo:null,critHi:null,peds:'Infants 44-76'},
+  CK:{name:'CK',unit:'U/L',lo:40,hi:320,critLo:null,critHi:null,femLo:25,femHi:200,peds:'Similar to adult'},
+  Trop:{name:'Troponin I',unit:'ng/L',lo:0,hi:34,critLo:null,critHi:null,peds:'Similar to adult'},
+  TSH:{name:'TSH',unit:'mIU/L',lo:0.4,hi:4.0,critLo:null,critHi:null,peds:'Neonates 1-39 first week'},
+  UA_SG:{name:'Specific Gravity',unit:'',lo:1.005,hi:1.030,peds:'Similar'},
+  UA_pH:{name:'pH',unit:'',lo:4.5,hi:8.0,peds:'Similar'},
+  UA_Prot:{name:'Protein',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+','4+'],peds:'Neg expected'},
+  UA_Gluc:{name:'Glucose',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
+  UA_Ket:{name:'Ketones',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
+  UA_Blood:{name:'Blood',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
+  UA_Leuk:{name:'Leukocytes',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
+  UA_Nit:{name:'Nitrites',unit:'',qualitative:true,options:['Negative','Positive'],peds:'Neg expected'},
+  UA_Bili:{name:'Bilirubin',unit:'',qualitative:true,options:['Negative','1+','2+','3+'],peds:'Neg expected'},
+  UA_Urobili:{name:'Urobilinogen',unit:'EU/dL',lo:0.1,hi:1.0,peds:'Similar'},
+  UA_WBC:{name:'WBC micro',unit:'/hpf',lo:0,hi:5,peds:'Similar'},
+  UA_RBC:{name:'RBC micro',unit:'/hpf',lo:0,hi:3,peds:'Similar'},
+  UA_Casts:{name:'Casts',unit:'/lpf',qualitative:true,options:['None','Hyaline','Granular','RBC casts','WBC casts','Waxy','Fatty'],peds:'Neg expected'},
+  ABO:{name:'ABO Group',unit:'',qualitative:true,options:['A','B','AB','O'],peds:''},
+  Rh:{name:'Rh Type',unit:'',qualitative:true,options:['Positive','Negative'],peds:''},
+  Ab_Sc:{name:'Antibody Screen',unit:'',qualitative:true,options:['Negative','Positive'],peds:''},
+  XM:{name:'Crossmatch',unit:'',qualitative:true,options:['Compatible','Incompatible','N/A'],peds:''},
+  DAT:{name:'DAT',unit:'',qualitative:true,options:['Negative','Positive (IgG)','Positive (C3d)','Positive (Both)'],peds:''},
+  Hgb_T:{name:'Hgb pre-transfusion',unit:'g/L',lo:120,hi:175,critLo:60,critHi:null,peds:'See Hgb'}
 };
-const REJECTION_REASONS=[
-{id:"unlabelled",label:"Unlabelled / missing label",recollect:true},
-{id:"mislabelled",label:"Mislabelled (name/ID mismatch)",recollect:true},
-{id:"wrong_tube",label:"Wrong tube type for test ordered",recollect:true},
-{id:"insufficient",label:"Insufficient volume (QNS)",recollect:true},
-{id:"haemolysed",label:"Haemolysed specimen",recollect:true},
-{id:"clotted",label:"Clotted (anticoagulated tube)",recollect:true},
-{id:"lipemic",label:"Lipaemic specimen",recollect:false},
-{id:"icteric",label:"Icteric specimen",recollect:false},
-{id:"expired",label:"Exceeded stability / time limit",recollect:true},
-{id:"leaked",label:"Leaking / damaged container",recollect:true},
-{id:"no_ice",label:"Requires ice - received warm",recollect:true},
-{id:"improper_fix",label:"Improper fixation",recollect:true},
-{id:"other",label:"Other (specify in notes)",recollect:false}
+
+const PANELS = {
+  CBC:{name:'CBC',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt'],tube:'EDTA (lavender)'},
+  CBCDiff:{name:'CBC + Differential',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt','Neut','Lymph','Mono','Eos','Baso'],tube:'EDTA (lavender)'},
+  PT_INR:{name:'PT/INR',dept:'O',tests:['PT','INR'],tube:'Citrate (blue)'},
+  aPTT:{name:'aPTT',dept:'O',tests:['aPTT'],tube:'Citrate (blue)'},
+  CoagFull:{name:'Full Coagulation Panel',dept:'O',tests:['PT','INR','aPTT','Fibrinogen','TT'],tube:'Citrate (blue)'},
+  BMP:{name:'Basic Metabolic Panel',dept:'C',tests:['Na','K','Cl','CO2','BUN','Cr','Gluc','Ca'],tube:'SST (gold) or Li-Hep'},
+  CMP:{name:'Comprehensive Metabolic Panel',dept:'C',tests:['Na','K','Cl','CO2','BUN','Cr','Gluc','Ca','ALT','AST','ALP','GGT','TBili','Alb','TP'],tube:'SST (gold) or Li-Hep'},
+  LFT:{name:'Liver Function Tests',dept:'C',tests:['ALT','AST','ALP','GGT','TBili','Alb','TP'],tube:'SST (gold)'},
+  Electrolytes:{name:'Electrolytes',dept:'C',tests:['Na','K','Cl','CO2'],tube:'SST or Li-Hep'},
+  Cardiac:{name:'Cardiac Panel',dept:'C',tests:['Trop','CK'],tube:'SST (gold)'},
+  Thyroid:{name:'Thyroid TSH',dept:'C',tests:['TSH'],tube:'SST (gold)'},
+  UA_Dip:{name:'UA Dipstick',dept:'U',tests:['UA_SG','UA_pH','UA_Prot','UA_Gluc','UA_Ket','UA_Blood','UA_Leuk','UA_Nit','UA_Bili','UA_Urobili'],tube:'Urine cup'},
+  UA_Full:{name:'UA Full',dept:'U',tests:['UA_SG','UA_pH','UA_Prot','UA_Gluc','UA_Ket','UA_Blood','UA_Leuk','UA_Nit','UA_Bili','UA_Urobili','UA_WBC','UA_RBC','UA_Casts'],tube:'Urine cup'},
+  TypeScreen:{name:'Type and Screen',dept:'T',tests:['ABO','Rh','Ab_Sc'],tube:'EDTA (pink transfusion)'},
+  TypeXM:{name:'Type and Crossmatch',dept:'T',tests:['ABO','Rh','Ab_Sc','XM'],tube:'EDTA (pink transfusion)'},
+  DAT_Test:{name:'Direct Antiglobulin Test',dept:'T',tests:['DAT'],tube:'EDTA (pink transfusion)'}
+};
+
+const REJECTION_REASONS = [
+  {id:'unlabelled',label:'Unlabelled / missing label',recollect:true},
+  {id:'mislabelled',label:'Mislabelled (name/ID mismatch)',recollect:true},
+  {id:'wrong_tube',label:'Wrong tube type for test ordered',recollect:true},
+  {id:'insufficient',label:'Insufficient volume (QNS)',recollect:true},
+  {id:'haemolysed',label:'Haemolysed specimen',recollect:true},
+  {id:'clotted',label:'Clotted (anticoagulated tube)',recollect:true},
+  {id:'lipemic',label:'Lipaemic specimen',recollect:false},
+  {id:'icteric',label:'Icteric specimen',recollect:false},
+  {id:'expired',label:'Exceeded stability / time limit',recollect:true},
+  {id:'leaked',label:'Leaking / damaged container',recollect:true},
+  {id:'no_ice',label:'Requires ice - received warm',recollect:true},
+  {id:'improper_fix',label:'Improper fixation',recollect:true},
+  {id:'other',label:'Other (specify in notes)',recollect:false}
 ];
-const MOCK_PATIENTS=[
-{id:"P001",firstName:"Margaret",lastName:"Olson",dob:"1948-03-12",sex:"F",healthNum:"101-234-5678",ward:"4B Medicine",physician:"Dr. R. Patel",phone:"403-555-0101",notes:"Known type 2 DM, hypertension"},
-{id:"P002",firstName:"James",lastName:"Thibodeau",dob:"1962-07-29",sex:"M",healthNum:"102-345-6789",ward:"ICU",physician:"Dr. S. Wong",phone:"403-555-0102",notes:"Post-op cholecystectomy, day 2"},
-{id:"P003",firstName:"Aisha",lastName:"Kowalski",dob:"1985-11-05",sex:"F",healthNum:"103-456-7890",ward:"ER",physician:"Dr. L. Okafor",phone:"403-555-0103",notes:"Presenting with chest pain"},
-{id:"P004",firstName:"Tyler",lastName:"Drummond",dob:"2014-04-18",sex:"M",healthNum:"104-567-8901",ward:"Paediatrics",physician:"Dr. M. Huang",phone:"403-555-0104",notes:"10 yr old - recurrent infections, rule out leukemia"},
-{id:"P005",firstName:"Gertrude",lastName:"Sinclair",dob:"1939-09-01",sex:"F",healthNum:"105-678-9012",ward:"Oncology",physician:"Dr. B. Larson",phone:"403-555-0105",notes:"Lymphoma, on chemo - monitor CBC weekly"},
-{id:"P006",firstName:"Michael",lastName:"Reindl",dob:"1975-02-14",sex:"M",healthNum:"106-789-0123",ward:"Outpatient",physician:"Dr. A. Nkosi",phone:"403-555-0106",notes:"Pre-op workup for elective knee replacement"},
-{id:"P007",firstName:"Priya",lastName:"Sandhu",dob:"1993-06-22",sex:"F",healthNum:"107-890-1234",ward:"Obstetrics",physician:"Dr. C. Bergeron",phone:"403-555-0107",notes:"28 weeks gestation, Rh-negative"},
-{id:"P008",firstName:"River",lastName:"Fontaine",dob:"2001-09-14",sex:"X",healthNum:"108-901-2345",ward:"ER",physician:"Dr. T. Marsh",phone:"403-555-0108",notes:"24 yr old - fatigue, rule out thyroid disorder"}
+
+const MOCK_PATIENTS = [
+  {id:'P001',firstName:'Margaret',lastName:'Olson',dob:'1948-03-12',sex:'F',healthNum:'101-234-5678',ward:'4B Medicine',physician:'Dr. R. Patel',phone:'403-555-0101',notes:'Known type 2 DM, hypertension'},
+  {id:'P002',firstName:'James',lastName:'Thibodeau',dob:'1962-07-29',sex:'M',healthNum:'102-345-6789',ward:'ICU',physician:'Dr. S. Wong',phone:'403-555-0102',notes:'Post-op cholecystectomy, day 2'},
+  {id:'P003',firstName:'Aisha',lastName:'Kowalski',dob:'1985-11-05',sex:'F',healthNum:'103-456-7890',ward:'ER',physician:'Dr. L. Okafor',phone:'403-555-0103',notes:'Presenting with chest pain'},
+  {id:'P004',firstName:'Tyler',lastName:'Drummond',dob:'2014-04-18',sex:'M',healthNum:'104-567-8901',ward:'Paediatrics',physician:'Dr. M. Huang',phone:'403-555-0104',notes:'10 yr old - recurrent infections, rule out leukemia'},
+  {id:'P005',firstName:'Gertrude',lastName:'Sinclair',dob:'1939-09-01',sex:'F',healthNum:'105-678-9012',ward:'Oncology',physician:'Dr. B. Larson',phone:'403-555-0105',notes:'Lymphoma, on chemo - monitor CBC weekly'},
+  {id:'P006',firstName:'Michael',lastName:'Reindl',dob:'1975-02-14',sex:'M',healthNum:'106-789-0123',ward:'Outpatient',physician:'Dr. A. Nkosi',phone:'403-555-0106',notes:'Pre-op workup for elective knee replacement'},
+  {id:'P007',firstName:'Priya',lastName:'Sandhu',dob:'1993-06-22',sex:'F',healthNum:'107-890-1234',ward:'Obstetrics',physician:'Dr. C. Bergeron',phone:'403-555-0107',notes:'28 weeks gestation, Rh-negative'},
+  {id:'P008',firstName:'River',lastName:'Fontaine',dob:'2001-09-14',sex:'X',healthNum:'108-901-2345',ward:'ER',physician:'Dr. T. Marsh',phone:'403-555-0108',notes:'24 yr old - fatigue, rule out thyroid disorder'}
 ];
-function genAcc(dept){const now=new Date();const yr=String(now.getFullYear()).slice(2);const start=new Date(now.getFullYear(),0,0);const day=String(Math.floor((now-start)/86400000)).padStart(3,"0");S.testCounter[dept]=(S.testCounter[dept]||0)+1;return yr+"RD-"+day+dept+String(S.testCounter[dept]).padStart(5,"0");}
-function today(){return new Date().toISOString().slice(0,10);}
-function nowTime(){return new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"});}
-function age(dob){if(!dob)return"?";const d=new Date(dob),t=new Date();let a=t.getFullYear()-d.getFullYear();if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate()))a--;return a;}
-function ptName(pt){return pt?pt.lastName+", "+pt.firstName:"--";}
-function statusBadge(s){return{ordered:"badge-info",accessioned:"badge-warning",received:"badge-purple",resulted:"badge-success",verified:"badge-gray",rejected:"badge-danger"}[s]||"badge-gray";}
-function statusLabel(s){return{ordered:"Ordered",accessioned:"Accessioned",received:"Received",resulted:"Resulted",verified:"Verified",rejected:"Rejected"}[s]||s;}
-function getFlag(key,val,sex){const r=REF[key];if(!r||r.qualitative)return{flag:"",cls:""};const v=parseFloat(val);if(isNaN(v))return{flag:"",cls:""};const rs=refSex(sex);let lo=r.lo,hi=r.hi;if(rs==="F"){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}if(r.critLo!=null&&v<=r.critLo)return{flag:"LL",cls:"flag-LL"};if(r.critHi!=null&&v>=r.critHi)return{flag:"HH",cls:"flag-HH"};if(v<lo)return{flag:"L",cls:"flag-L"};if(v>hi)return{flag:"H",cls:"flag-H"};return{flag:"",cls:"flag-N"};}
-function isCrit(key,val,sex){const f=getFlag(key,val,sex);return f.flag==="HH"||f.flag==="LL";}
-function nav(page){S.currentPage=page;document.querySelectorAll(".nav-item").forEach(el=>el.classList.remove("active"));const n=document.getElementById("nav-"+page);if(n)n.classList.add("active");render();}
-function render(){
-const map={dashboard:renderDashboard,patients:renderPatients,orders:renderOrders,accession:renderAccession,receive:renderReceive,results:renderResults,verify:renderVerify,reports:renderReports,rejected:renderRejected,checklist:renderChecklist,ai:renderAI,heme:()=>renderSection("H"),coag:()=>renderSection("O"),chem:()=>renderSection("C"),ua:()=>renderSection("U"),transfusion:()=>renderSection("T")};
-const titles={dashboard:"Dashboard",patients:"Patient Registry",orders:"Order Entry",accession:"Specimen Accessioning",receive:"Receive Specimen",results:"Result Entry",verify:"Result Verification",reports:"Lab Reports",rejected:"Rejected Specimens",checklist:"Competency Checklist",ai:"AI Result Interpreter",heme:"Hematology",coag:"Coagulation",chem:"Chemistry",ua:"UA / Body Fluids",transfusion:"Transfusion Medicine"};
-const icons={dashboard:"ti-layout-dashboard",patients:"ti-user",orders:"ti-clipboard-list",accession:"ti-barcode",receive:"ti-inbox",results:"ti-microscope",verify:"ti-circle-check",reports:"ti-file-analytics",rejected:"ti-ban",checklist:"ti-checkbox",ai:"ti-robot",heme:"ti-drop",coag:"ti-activity",chem:"ti-flask",ua:"ti-test-pipe",transfusion:"ti-heart-rate-monitor"};
-document.getElementById("topbar-title").innerHTML="<i class=\"ti "+icons[S.currentPage]+"\"></i>"+titles[S.currentPage];
-const fn=map[S.currentPage];if(fn)fn();
+
+function genAcc(dept) {
+  const now = new Date();
+  const yr = String(now.getFullYear()).slice(2);
+  const start = new Date(now.getFullYear(),0,0);
+  const day = String(Math.floor((now-start)/86400000)).padStart(3,'0');
+  S.testCounter[dept] = (S.testCounter[dept]||0)+1;
+  return yr+'RD-'+day+dept+String(S.testCounter[dept]).padStart(5,'0');
 }
-function openModal(title,body,buttons){
-const btns=buttons||[{label:"Close",cls:"btn",fn:closeModal}];
-document.getElementById("modal-inner").innerHTML="<div class=\"modal-header\"><span>"+title+"</span><button class=\"btn btn-icon btn-sm\" onclick=\"closeModal()\"><i class=\"ti ti-x\"></i></button></div><div class=\"modal-body\">"+body+"</div><div class=\"modal-footer\">"+btns.map(b=>"<button class=\"btn "+b.cls+"\" id=\"mb_"+b.label.replace(/\W/g,"_")+"\" >"+b.label+"</button>").join("")+"</div>";
-document.getElementById("modal").style.display="flex";
-btns.forEach(b=>{const el=document.getElementById("mb_"+b.label.replace(/\W/g,"_"));if(el&&b.fn)el.onclick=b.fn;});
+function today() { return new Date().toISOString().slice(0,10); }
+function nowTime() { return new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'}); }
+function age(dob) {
+  if(!dob) return '?';
+  const d=new Date(dob), t=new Date();
+  let a=t.getFullYear()-d.getFullYear();
+  if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate())) a--;
+  return a;
 }
-function closeModal(){document.getElementById("modal").style.display="none";}
-function closeModalBg(e){if(e.target===document.getElementById("modal"))closeModal();}
-function wfRow(label,count,cls){return "<div style=\"display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5\"><span>"+label+"</span><span class=\"badge "+cls+"\">"+count+"</span></div>";}
-function renderDashboard(){
-document.getElementById("topbar-right").innerHTML="";
-const pending=S.orders.filter(o=>o.status==="ordered").length;
-const accessioned=S.orders.filter(o=>o.status==="accessioned").length;
-const received=S.orders.filter(o=>o.status==="received").length;
-const resulted=S.orders.filter(o=>o.status==="resulted").length;
-const verified=S.orders.filter(o=>o.status==="verified").length;
-const rejected=S.orders.filter(o=>o.status==="rejected").length;
-const crits=S.results.filter(r=>r.critical&&!r.callbackDone).length;
-const recent=[...S.orders].sort((a,b)=>b.ts-a.ts).slice(0,6).map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<div style=\"display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #e5e5e5;font-size:11px\"><span>"+ptName(pt)+" -- "+o.panel+"</span><span class=\"badge "+statusBadge(o.status)+"\">"+statusLabel(o.status)+"</span></div>";}).join("")||"<div class=\"empty\" style=\"padding:16px\">No activity yet</div>";
-const critRows=S.results.filter(r=>r.critical&&!r.callbackDone).map(r=>{const o=S.orders.find(x=>x.id===r.orderId);const pt=o?S.patients.find(p=>p.id===o.patientId):null;const ref=REF[r.testKey];const fl=getFlag(r.testKey,r.value,pt?pt.sex:"M");return "<tr class=\"crit-row\"><td>"+ptName(pt)+"</td><td>"+(ref?ref.name:r.testKey)+"</td><td><span class=\""+fl.cls+"\">"+r.value+" "+(ref&&!ref.qualitative?ref.unit:"")+"</span></td><td><span class=\""+fl.cls+"\">"+fl.flag+"</span></td><td style=\"font-family:monospace;font-size:11px\">"+(r.accession||"")+"</td><td><button class=\"btn btn-sm btn-success\" onclick=\"markCallback('"+r.id+"')\"><i class=\"ti ti-phone\"></i>Callback done</button></td></tr>";}).join("");
-document.getElementById("content").innerHTML="<div class=\"grid4\" style=\"margin-bottom:14px\"><div class=\"stat\"><div class=\"stat-label\">Patients</div><div class=\"stat-value\">"+S.patients.length+"</div></div><div class=\"stat\"><div class=\"stat-label\">Pending Orders</div><div class=\"stat-value\">"+(pending+accessioned+received)+"</div></div><div class=\"stat\"><div class=\"stat-label\">Rejected</div><div class=\"stat-value\" style=\"color:#a32d2d\">"+rejected+"</div></div><div class=\"stat\"><div class=\"stat-label\">Critical Callbacks</div><div class=\"stat-value\" style=\"color:#a32d2d\">"+crits+"</div></div></div><div class=\"grid2\"><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-arrow-right\"></i>Workflow Pipeline</div>"+wfRow("Ordered",pending,"badge-info")+wfRow("Accessioned",accessioned,"badge-warning")+wfRow("Received",received,"badge-purple")+wfRow("Resulted",resulted,"badge-success")+wfRow("Verified",verified,"badge-gray")+(rejected?wfRow("Rejected",rejected,"badge-danger"):"")+"</div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-clock\"></i>Recent Activity</div>"+recent+"</div></div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-alert-triangle\" style=\"color:#a32d2d\"></i>Critical Values -- Pending Callback</div>"+(critRows?"<table><thead><tr><th>Patient</th><th>Test</th><th>Value</th><th>Flag</th><th>Accession</th><th>Action</th></tr></thead><tbody>"+critRows+"</tbody></table>":"<div class=\"empty\" style=\"padding:12px\">No pending critical callbacks</div>")+"</div>";
+function ptName(pt) { return pt ? pt.lastName+', '+pt.firstName : '--'; }
+function statusBadge(s) { return {ordered:'badge-info',accessioned:'badge-warning',received:'badge-purple',resulted:'badge-success',verified:'badge-gray',rejected:'badge-danger'}[s]||'badge-gray'; }
+function statusLabel(s) { return {ordered:'Ordered',accessioned:'Accessioned',received:'Received',resulted:'Resulted',verified:'Verified',rejected:'Rejected'}[s]||s; }
+
+function getFlag(key,val,sex) {
+  const r=REF[key];
+  if(!r||r.qualitative) return {flag:'',cls:''};
+  const v=parseFloat(val);
+  if(isNaN(v)) return {flag:'',cls:''};
+  const rs=refSex(sex);
+  let lo=r.lo, hi=r.hi;
+  if(rs==='F') { if(r.femLo!=null) lo=r.femLo; if(r.femHi!=null) hi=r.femHi; }
+  if(r.critLo!=null&&v<=r.critLo) return {flag:'LL',cls:'flag-LL'};
+  if(r.critHi!=null&&v>=r.critHi) return {flag:'HH',cls:'flag-HH'};
+  if(v<lo) return {flag:'L',cls:'flag-L'};
+  if(v>hi) return {flag:'H',cls:'flag-H'};
+  return {flag:'',cls:'flag-N'};
 }
-function markCallback(rid){const r=S.results.find(x=>x.id===rid);if(r)r.callbackDone=true;render();}
-let ptSearch="";
-function renderPatients(){
-document.getElementById("topbar-right").innerHTML="<button class=\"btn btn-primary\" onclick=\"openAddPatient()\"><i class=\"ti ti-user-plus\"></i>Register Patient</button>";
-const filtered=S.patients.filter(p=>(p.firstName+" "+p.lastName+" "+p.healthNum+" "+p.ward).toLowerCase().includes(ptSearch.toLowerCase()));
-const rows=filtered.length?filtered.map(p=>"<tr><td style=\"font-family:monospace;font-size:10px\">"+p.id+"</td><td><strong>"+p.lastName+"</strong>, "+p.firstName+"</td><td>"+p.dob+"</td><td>"+age(p.dob)+"</td><td><span class=\"badge badge-gray\">"+sexLabel(p.sex)+"</span></td><td style=\"font-family:monospace;font-size:10px\">"+p.healthNum+"</td><td>"+(p.ward||"--")+"</td><td>"+(p.physician||"--")+"</td><td><button class=\"btn btn-sm\" onclick=\"viewPatient('"+p.id+"')\"><i class=\"ti ti-eye\"></i></button> <button class=\"btn btn-sm btn-primary\" onclick=\"quickOrder('"+p.id+"')\"><i class=\"ti ti-plus\"></i>Order</button></td></tr>").join(""):"<tr><td colspan=\"9\"><div class=\"empty\">No patients found</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"margin-bottom:12px\"><div class=\"field\" style=\"margin:0\"><input placeholder=\"Search name, health number, ward...\" value=\""+ptSearch+"\" oninput=\"ptSearch=this.value;renderPatients()\" style=\"max-width:340px\"></div></div><div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>ID</th><th>Name</th><th>DOB</th><th>Age</th><th>Sex</th><th>Health #</th><th>Ward</th><th>Physician</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+function isCrit(key,val,sex) { const f=getFlag(key,val,sex); return f.flag==='HH'||f.flag==='LL'; }
+
+function nav(page) {
+  S.currentPage=page;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const n=document.getElementById('nav-'+page);
+  if(n) n.classList.add('active');
+  render();
 }
-function openAddPatient(){
-openModal("Register New Patient","<div class=\"grid2\"><div class=\"field\"><label>First Name *</label><input id=\"pf\"></div><div class=\"field\"><label>Last Name *</label><input id=\"pl\"></div></div><div class=\"grid3\"><div class=\"field\"><label>Date of Birth *</label><input id=\"pdob\" type=\"date\"></div><div class=\"field\"><label>Sex / Gender *</label><select id=\"psex\">"+SEX_OPTS.map(s=>"<option value=\""+s.val+"\">"+s.label+"</option>").join("")+"</select></div><div class=\"field\"><label>Health Care #</label><input id=\"phn\" placeholder=\"101-234-5678\"></div></div><div class=\"info-box\">For X or Prefer not to say, adult unisex reference ranges are applied.</div><div class=\"grid2\"><div class=\"field\"><label>Ward</label><input id=\"pward\"></div><div class=\"field\"><label>Physician</label><input id=\"pphy\" placeholder=\"Dr. \"></div></div><div class=\"field\"><label>Phone</label><input id=\"pphone\"></div><div class=\"field\"><label>Clinical Notes</label><textarea id=\"pnotes\"></textarea></div>",
-[{label:"Cancel",cls:"btn",fn:closeModal},{label:"Register",cls:"btn btn-primary",fn:()=>{
-const fn=document.getElementById("pf").value.trim();const ln=document.getElementById("pl").value.trim();const dob=document.getElementById("pdob").value;
-if(!fn||!ln||!dob){alert("First name, last name, and DOB are required.");return;}
-S.patients.push({id:"P"+String(S.patients.length+1).padStart(3,"0"),firstName:fn,lastName:ln,dob,sex:document.getElementById("psex").value,healthNum:document.getElementById("phn").value.trim(),ward:document.getElementById("pward").value.trim(),physician:document.getElementById("pphy").value.trim(),phone:document.getElementById("pphone").value.trim(),notes:document.getElementById("pnotes").value.trim()});
-closeModal();nav("patients");}}]);
+
+function render() {
+  const map = {
+    dashboard:renderDashboard, patients:renderPatients, orders:renderOrders,
+    accession:renderAccession, receive:renderReceive, results:renderResults,
+    verify:renderVerify, reports:renderReports, rejected:renderRejected,
+    checklist:renderChecklist, ai:renderAI,
+    heme:()=>renderSection('H'), coag:()=>renderSection('O'),
+    chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T')
+  };
+  const titles = {
+    dashboard:'Dashboard', patients:'Patient Registry', orders:'Order Entry',
+    accession:'Specimen Accessioning', receive:'Receive Specimen', results:'Result Entry',
+    verify:'Result Verification', reports:'Lab Reports', rejected:'Rejected Specimens',
+    checklist:'Competency Checklist', ai:'AI Result Interpreter',
+    heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'UA / Body Fluids', transfusion:'Transfusion Medicine'
+  };
+  const icons = {
+    dashboard:'ti-layout-dashboard', patients:'ti-user', orders:'ti-clipboard-list',
+    accession:'ti-barcode', receive:'ti-inbox', results:'ti-microscope', verify:'ti-circle-check',
+    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', ai:'ti-robot',
+    heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor'
+  };
+  document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
+  const fn=map[S.currentPage]; if(fn) fn();
 }
-function viewPatient(id){
-const pt=S.patients.find(p=>p.id===id);if(!pt)return;
-const ptOrders=S.orders.filter(o=>o.patientId===id);
-const orderRows=ptOrders.length?ptOrders.map(o=>"<tr><td style=\"font-family:monospace;font-size:10px\">"+(o.accession||"--")+"</td><td>"+o.panel+"</td><td>"+o.date+"</td><td><span class=\"badge "+statusBadge(o.status)+"\">"+statusLabel(o.status)+"</span></td></tr>").join(""):"";
-openModal(ptName(pt)+" -- Chart","<div class=\"grid2\" style=\"margin-bottom:14px\"><div><div class=\"stat-label\">DOB</div><div>"+pt.dob+" (Age "+age(pt.dob)+")</div></div><div><div class=\"stat-label\">Sex</div><div>"+sexLabel(pt.sex)+"</div></div><div><div class=\"stat-label\">Health #</div><div style=\"font-family:monospace\">"+(pt.healthNum||"--")+"</div></div><div><div class=\"stat-label\">Physician</div><div>"+(pt.physician||"--")+"</div></div></div>"+(pt.notes?"<div class=\"info-box\">"+pt.notes+"</div>":"")+"<div class=\"card-title\"><i class=\"ti ti-clipboard-list\"></i>Lab Orders</div>"+(orderRows?"<table><thead><tr><th>Accession #</th><th>Panel</th><th>Date</th><th>Status</th></tr></thead><tbody>"+orderRows+"</tbody></table>":"<div class=\"empty\" style=\"padding:12px\">No orders</div>"),
-[{label:"Close",cls:"btn",fn:closeModal},{label:"New Order",cls:"btn btn-primary",fn:()=>{closeModal();quickOrder(id);}}]);
+
+function openModal(title, body, buttons) {
+  const btns = buttons||[{label:'Close',cls:'btn',fn:closeModal}];
+  const btnHtml = btns.map(b=>'<button class="btn '+b.cls+'" id="mb_'+b.label.replace(/\W/g,'_')+'">'+b.label+'</button>').join('');
+  document.getElementById('modal-inner').innerHTML =
+    '<div class="modal-header"><span>'+title+'</span><button class="btn btn-icon btn-sm" onclick="closeModal()"><i class="ti ti-x"></i></button></div>'+
+    '<div class="modal-body">'+body+'</div>'+
+    '<div class="modal-footer">'+btnHtml+'</div>';
+  document.getElementById('modal').style.display='flex';
+  btns.forEach(b=>{ const el=document.getElementById('mb_'+b.label.replace(/\W/g,'_')); if(el&&b.fn) el.onclick=b.fn; });
 }
-function quickOrder(pid){S._quickOrderPt=pid;nav("orders");}
-let orderPtId="",orderPanels=[];
-function renderOrders(){
-if(S._quickOrderPt){orderPtId=S._quickOrderPt;S._quickOrderPt=null;}
-document.getElementById("topbar-right").innerHTML="";
-const pt=S.patients.find(p=>p.id===orderPtId);
-const deptNames={H:"Hematology",O:"Coagulation",C:"Chemistry",U:"Urinalysis / Body Fluids",T:"Transfusion Medicine"};
-const panelSections=["H","O","C","U","T"].map(dept=>{const panels=Object.entries(PANELS).filter(([k,v])=>v.dept===dept);return "<div style=\"margin-bottom:10px\"><div style=\"font-size:10px;font-weight:500;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em\">"+deptNames[dept]+"</div><div style=\"display:flex;flex-wrap:wrap;gap:5px\">"+panels.map(([k,v])=>"<span class=\"chip "+(orderPanels.includes(k)?"selected":"")+"\" onclick=\"togglePanel('"+k+"')\" >"+v.name+"</span>").join("")+"</div></div>";}).join("");
-const tubeList=orderPanels.length?"<div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-test-pipe\"></i>Tubes Required</div>"+[...new Set(orderPanels.map(k=>PANELS[k]&&PANELS[k].tube).filter(Boolean))].map(t=>"<div style=\"display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px\"><i class=\"ti ti-test-pipe\"></i>"+t+"</div>").join("")+"</div>":"";
-document.getElementById("content").innerHTML="<div class=\"grid2\"><div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-user\"></i>Select Patient</div><div class=\"field\"><label>Patient</label><select id=\"orderPtSel\" onchange=\"orderPtId=this.value;orderPanels=[];renderOrders()\"><option value=\"\">-- Select --</option>"+S.patients.map(p=>"<option value=\""+p.id+"\" "+(p.id===orderPtId?"selected":"")+">"+ptName(p)+" ("+p.id+")</option>").join("")+"</select></div>"+(pt?"<div class=\"info-box\"><strong>"+ptName(pt)+"</strong> -- "+sexLabel(pt.sex)+", Age "+age(pt.dob)+"<br>"+(pt.ward||"")+" | "+(pt.physician||"")+"</div>":"")+"</div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-notes\"></i>Requisition Details</div><div class=\"field\"><label>Clinical Indication</label><textarea id=\"orderInd\" placeholder=\"e.g. Rule out anemia, pre-op workup...\"></textarea></div><div class=\"grid2\"><div class=\"field\"><label>Priority</label><select id=\"orderPri\"><option>Routine</option><option>Urgent</option><option>STAT</option></select></div><div class=\"field\"><label>Collection Date</label><input type=\"date\" id=\"orderDate\" value=\""+today()+"\" ></div></div></div></div><div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-clipboard-list\"></i>Test Panels</div>"+panelSections+"</div>"+tubeList+"<button class=\"btn btn-primary\" style=\"width:100%;margin-top:4px\" onclick=\"submitOrder()\" "+((!orderPtId||!orderPanels.length)?"disabled":"")+"><i class=\"ti ti-send\"></i>Submit Order"+(orderPanels.length?" ("+orderPanels.length+")":"")+"</button></div></div>";
+function closeModal() { document.getElementById('modal').style.display='none'; }
+function closeModalBg(e) { if(e.target===document.getElementById('modal')) closeModal(); }
+
+function wfRow(label,count,cls) {
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5"><span>'+label+'</span><span class="badge '+cls+'">'+count+'</span></div>';
 }
-function togglePanel(k){const i=orderPanels.indexOf(k);if(i>=0)orderPanels.splice(i,1);else orderPanels.push(k);renderOrders();}
-function submitOrder(){
-if(!orderPtId||!orderPanels.length)return;
-orderPanels.forEach(pk=>{const panel=PANELS[pk];S.orders.push({id:"ORD-"+Date.now()+"-"+Math.random().toString(36).slice(2,6),patientId:orderPtId,panel:panel.name,panelKey:pk,dept:panel.dept,tests:panel.tests,tube:panel.tube,priority:document.getElementById("orderPri").value,indication:document.getElementById("orderInd").value,date:document.getElementById("orderDate").value,status:"ordered",ts:Date.now(),accession:null});});
-const count=orderPanels.length;orderPanels=[];orderPtId="";
-alert(count+" order"+(count>1?"s":"")+" submitted.");nav("accession");
+
+function renderDashboard() {
+  document.getElementById('topbar-right').innerHTML='';
+  const pending=S.orders.filter(o=>o.status==='ordered').length;
+  const accessioned=S.orders.filter(o=>o.status==='accessioned').length;
+  const received=S.orders.filter(o=>o.status==='received').length;
+  const resulted=S.orders.filter(o=>o.status==='resulted').length;
+  const verified=S.orders.filter(o=>o.status==='verified').length;
+  const rejected=S.orders.filter(o=>o.status==='rejected').length;
+  const crits=S.results.filter(r=>r.critical&&!r.callbackDone).length;
+  const recent=[...S.orders].sort((a,b)=>b.ts-a.ts).slice(0,6)
+    .map(o=>{ const pt=S.patients.find(p=>p.id===o.patientId);
+      return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #e5e5e5;font-size:11px"><span>'+ptName(pt)+' -- '+o.panel+'</span><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></div>';
+    }).join('')||'<div class="empty" style="padding:16px">No activity yet</div>';
+  const critRows=S.results.filter(r=>r.critical&&!r.callbackDone).map(r=>{
+    const o=S.orders.find(x=>x.id===r.orderId);
+    const pt=o?S.patients.find(p=>p.id===o.patientId):null;
+    const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,pt?pt.sex:'M');
+    return '<tr class="crit-row"><td>'+ptName(pt)+'</td><td>'+(ref?ref.name:r.testKey)+'</td>'+
+      '<td><span class="'+fl.cls+'">'+r.value+' '+(ref&&!ref.qualitative?ref.unit:'')+'</span></td>'+
+      '<td><span class="'+fl.cls+'">'+fl.flag+'</span></td>'+
+      '<td style="font-family:monospace;font-size:11px">'+(r.accession||'')+'</td>'+
+      '<td><button class="btn btn-sm btn-success" onclick="markCallback(\''+r.id+'\')"><i class="ti ti-phone"></i>Callback done</button></td></tr>';
+  }).join('');
+  document.getElementById('content').innerHTML =
+    '<div class="grid4" style="margin-bottom:14px">'+
+    '<div class="stat"><div class="stat-label">Patients</div><div class="stat-value">'+S.patients.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Pending Orders</div><div class="stat-value">'+(pending+accessioned+received)+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Rejected</div><div class="stat-value" style="color:#a32d2d">'+rejected+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Critical Callbacks</div><div class="stat-value" style="color:#a32d2d">'+crits+'</div></div></div>'+
+    '<div class="grid2">'+
+    '<div class="card"><div class="card-title"><i class="ti ti-arrow-right"></i>Workflow Pipeline</div>'+
+    wfRow('Ordered',pending,'badge-info')+wfRow('Accessioned',accessioned,'badge-warning')+
+    wfRow('Received',received,'badge-purple')+wfRow('Resulted',resulted,'badge-success')+
+    wfRow('Verified',verified,'badge-gray')+(rejected?wfRow('Rejected',rejected,'badge-danger'):'')+
+    '</div><div class="card"><div class="card-title"><i class="ti ti-clock"></i>Recent Activity</div>'+recent+'</div></div>'+
+    '<div class="card"><div class="card-title"><i class="ti ti-alert-triangle" style="color:#a32d2d"></i>Critical Values</div>'+
+    (critRows?'<table><thead><tr><th>Patient</th><th>Test</th><th>Value</th><th>Flag</th><th>Accession</th><th>Action</th></tr></thead><tbody>'+critRows+'</tbody></table>':
+    '<div class="empty" style="padding:12px">No pending critical callbacks</div>')+'</div>';
 }
-function renderAccession(){
-document.getElementById("topbar-right").innerHTML="";
-const pending=S.orders.filter(o=>o.status==="ordered");
-const rows=pending.length?pending.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<tr><td><strong>"+ptName(pt)+"</strong><br><span style=\"font-size:10px;color:#666\">"+(pt?pt.ward:"")+"</span></td><td>"+o.panel+"</td><td><span class=\"badge "+(o.priority==="STAT"?"badge-danger":o.priority==="Urgent"?"badge-warning":"badge-gray")+"\">"+o.priority+"</span></td><td style=\"font-size:11px\">"+o.tube+"</td><td>"+o.date+"</td><td>"+o.dept+"</td><td><button class=\"btn btn-sm btn-primary\" onclick=\"accessionOrder('"+o.id+"')\"><i class=\"ti ti-barcode\"></i>Accession</button> <button class=\"btn btn-sm btn-danger\" onclick=\"rejectOrderModal('"+o.id+"',,'')\" ><i class=\"ti ti-ban\"></i>Reject</button></td></tr>";}).join(""):"<tr><td colspan=\"7\"><div class=\"empty\">No orders pending accessioning</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Patient</th><th>Panel</th><th>Priority</th><th>Tube</th><th>Date</th><th>Dept</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+function markCallback(rid) { const r=S.results.find(x=>x.id===rid); if(r) r.callbackDone=true; render(); }
+
+let ptSearch='';
+function renderPatients() {
+  document.getElementById('topbar-right').innerHTML='<button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-user-plus"></i>Register Patient</button>';
+  const filtered=S.patients.filter(p=>(p.firstName+' '+p.lastName+' '+p.healthNum+' '+p.ward).toLowerCase().includes(ptSearch.toLowerCase()));
+  const rows=filtered.length?filtered.map(p=>
+    '<tr><td style="font-family:monospace;font-size:10px">'+p.id+'</td>'+
+    '<td><strong>'+p.lastName+'</strong>, '+p.firstName+'</td>'+
+    '<td>'+p.dob+'</td><td>'+age(p.dob)+'</td>'+
+    '<td><span class="badge badge-gray">'+sexLabel(p.sex)+'</span></td>'+
+    '<td style="font-family:monospace;font-size:10px">'+p.healthNum+'</td>'+
+    '<td>'+(p.ward||'--')+'</td><td>'+(p.physician||'--')+'</td>'+
+    '<td><button class="btn btn-sm" onclick="viewPatient(\''+p.id+'\')"><i class="ti ti-eye"></i></button> '+
+    '<button class="btn btn-sm btn-primary" onclick="quickOrder(\''+p.id+'\')"><i class="ti ti-plus"></i>Order</button></td></tr>'
+  ).join(''):'<tr><td colspan="9"><div class="empty">No patients found</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="margin-bottom:12px"><div class="field" style="margin:0">'+
+    '<input placeholder="Search name, health number, ward..." value="'+ptSearch+'" oninput="ptSearch=this.value;renderPatients()" style="max-width:340px"></div></div>'+
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>ID</th><th>Name</th><th>DOB</th><th>Age</th><th>Sex</th><th>Health #</th><th>Ward</th><th>Physician</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function accessionOrder(oid){
-const o=S.orders.find(x=>x.id===oid);if(!o)return;
-const pt=S.patients.find(p=>p.id===o.patientId);
-const acc=genAcc(o.dept);
-const deptNames={H:"Hematology",O:"Coagulation",C:"Chemistry",U:"Urinalysis",T:"Transfusion"};
-openModal("Accession Specimen","<div class=\"grid2\" style=\"margin-bottom:12px\"><div><div class=\"stat-label\">Patient</div><div><strong>"+ptName(pt)+"</strong></div></div><div><div class=\"stat-label\">Panel</div><div>"+o.panel+"</div></div><div><div class=\"stat-label\">Accession #</div><div style=\"font-family:monospace;font-size:16px;font-weight:500;color:#185fa5\">"+acc+"</div></div><div><div class=\"stat-label\">Dept</div><div>"+o.dept+"</div></div></div><div class=\"info-box\" style=\"margin-bottom:12px\"><strong>Breakdown:</strong> "+acc.slice(0,2)+" Year | RD Facility | "+acc.slice(4,7)+" Day | "+o.dept+" "+(deptNames[o.dept]||o.dept)+" | "+acc.slice(-5)+" Sequential</div><div class=\"grid2\"><div class=\"field\"><label>Received at lab (time)</label><input id=\"accTime\" value=\""+nowTime()+"\" ></div><div class=\"field\"><label>Received by (initials)</label><input id=\"accBy\" placeholder=\"e.g. JM\"></div></div><div class=\"field\"><label>Initial specimen appearance</label><select id=\"accApp\"><option>Acceptable</option><option>Haemolysed</option><option>Lipaemic</option><option>Icteric</option><option>Insufficient volume</option><option>Wrong tube</option><option>Unlabelled</option></select></div><div class=\"field\"><label>Notes</label><input id=\"accNotes\" placeholder=\"Optional\"></div>",
-[{label:"Cancel",cls:"btn",fn:closeModal},{label:"Reject",cls:"btn btn-danger",fn:()=>{const app=document.getElementById("accApp").value;closeModal();rejectOrderModal(oid,app);}},{label:"Confirm Accession",cls:"btn btn-primary",fn:()=>{o.accession=acc;o.status="accessioned";o.accessionedBy=document.getElementById("accBy").value;o.accessionTime=document.getElementById("accTime").value;o.specimenNotes=document.getElementById("accApp").value+(document.getElementById("accNotes").value?" -- "+document.getElementById("accNotes").value:"");closeModal();nav("receive");}}]);
+
+function openAddPatient() {
+  const sexOpts=SEX_OPTS.map(s=>'<option value="'+s.val+'">'+s.label+'</option>').join('');
+  openModal('Register New Patient',
+    '<div class="grid2"><div class="field"><label>First Name *</label><input id="pf"></div><div class="field"><label>Last Name *</label><input id="pl"></div></div>'+
+    '<div class="grid3"><div class="field"><label>Date of Birth *</label><input id="pdob" type="date"></div>'+
+    '<div class="field"><label>Sex / Gender *</label><select id="psex">'+sexOpts+'</select></div>'+
+    '<div class="field"><label>Health Care #</label><input id="phn" placeholder="101-234-5678"></div></div>'+
+    '<div class="info-box">For X or Prefer not to say, adult unisex reference ranges are applied.</div>'+
+    '<div class="grid2"><div class="field"><label>Ward</label><input id="pward"></div><div class="field"><label>Physician</label><input id="pphy" placeholder="Dr. "></div></div>'+
+    '<div class="field"><label>Phone</label><input id="pphone"></div>'+
+    '<div class="field"><label>Clinical Notes</label><textarea id="pnotes"></textarea></div>',
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Register',cls:'btn btn-primary',fn:()=>{
+      const fn=document.getElementById('pf').value.trim();
+      const ln=document.getElementById('pl').value.trim();
+      const dob=document.getElementById('pdob').value;
+      if(!fn||!ln||!dob){alert('First name, last name, and DOB are required.');return;}
+      S.patients.push({
+        id:'P'+String(S.patients.length+1).padStart(3,'0'),
+        firstName:fn,lastName:ln,dob,
+        sex:document.getElementById('psex').value,
+        healthNum:document.getElementById('phn').value.trim(),
+        ward:document.getElementById('pward').value.trim(),
+        physician:document.getElementById('pphy').value.trim(),
+        phone:document.getElementById('pphone').value.trim(),
+        notes:document.getElementById('pnotes').value.trim()
+      });
+      closeModal(); nav('patients');
+    }}]);
 }
-function renderReceive(){
-document.getElementById("topbar-right").innerHTML="";
-const ready=S.orders.filter(o=>o.status==="accessioned");
-const rows=ready.length?ready.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<tr><td style=\"font-family:monospace;font-size:10px\">"+o.accession+"</td><td><strong>"+ptName(pt)+"</strong><br><span style=\"font-size:10px;color:#666\">"+(pt?sexLabel(pt.sex)+", Age "+age(pt.dob):"")+"</span></td><td>"+o.panel+"</td><td style=\"font-size:11px\">"+o.tube+"</td><td style=\"font-size:11px;color:#666\">"+(o.accessionTime||"--")+" ("+(o.accessionedBy||"?")+")</td><td><span class=\"badge "+(o.priority==="STAT"?"badge-danger":o.priority==="Urgent"?"badge-warning":"badge-gray")+"\">"+o.priority+"</span></td><td><button class=\"btn btn-sm btn-primary\" onclick=\"receiveSpecimen('"+o.id+"')\"><i class=\"ti ti-inbox\"></i>Receive</button> <button class=\"btn btn-sm btn-danger\" onclick=\"rejectOrderModal('"+o.id+"','')\" ><i class=\"ti ti-ban\"></i>Reject</button></td></tr>";}).join(""):"<tr><td colspan=\"7\"><div class=\"empty\">No accessioned specimens awaiting receipt</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"info-box\" style=\"margin-bottom:14px\"><i class=\"ti ti-info-circle\"></i> Enter original collection time, date, and collector ID before specimens proceed to result entry.</div><div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Tube</th><th>Accessioned</th><th>Priority</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function viewPatient(id) {
+  const pt=S.patients.find(p=>p.id===id); if(!pt) return;
+  const ptOrders=S.orders.filter(o=>o.patientId===id);
+  const orderRows=ptOrders.map(o=>
+    '<tr><td style="font-family:monospace;font-size:10px">'+(o.accession||'--')+'</td>'+
+    '<td>'+o.panel+'</td><td>'+o.date+'</td>'+
+    '<td><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></td></tr>'
+  ).join('');
+  openModal(ptName(pt)+' -- Chart',
+    '<div class="grid2" style="margin-bottom:14px">'+
+    '<div><div class="stat-label">DOB</div><div>'+pt.dob+' (Age '+age(pt.dob)+')</div></div>'+
+    '<div><div class="stat-label">Sex</div><div>'+sexLabel(pt.sex)+'</div></div>'+
+    '<div><div class="stat-label">Health #</div><div style="font-family:monospace">'+(pt.healthNum||'--')+'</div></div>'+
+    '<div><div class="stat-label">Physician</div><div>'+(pt.physician||'--')+'</div></div></div>'+
+    (pt.notes?'<div class="info-box">'+pt.notes+'</div>':'')+
+    '<div class="card-title"><i class="ti ti-clipboard-list"></i>Lab Orders</div>'+
+    (orderRows?'<table><thead><tr><th>Accession #</th><th>Panel</th><th>Date</th><th>Status</th></tr></thead><tbody>'+orderRows+'</tbody></table>':
+    '<div class="empty" style="padding:12px">No orders</div>'),
+    [{label:'Close',cls:'btn',fn:closeModal},
+     {label:'New Order',cls:'btn btn-primary',fn:()=>{closeModal();quickOrder(id);}}]);
 }
-function receiveSpecimen(oid){
-const o=S.orders.find(x=>x.id===oid);if(!o)return;
-const pt=S.patients.find(p=>p.id===o.patientId);
-openModal("Receive Specimen -- "+o.accession,"<div class=\"info-box\" style=\"margin-bottom:14px\"><strong>"+ptName(pt)+"</strong> | "+o.panel+" | "+o.tube+"</div><div style=\"font-weight:500;font-size:12px;margin-bottom:10px\">Collection information (as labelled on tube)</div><div class=\"grid2\"><div class=\"field\"><label>Collection Date *</label><input id=\"colDate\" type=\"date\" value=\""+o.date+"\" ></div><div class=\"field\"><label>Collection Time *</label><input id=\"colTime\" type=\"time\"></div></div><div class=\"field\"><label>Collector ID * (employee ID, student ID, or initials)</label><input id=\"colId\" placeholder=\"e.g. JM or S12345\"></div><div class=\"field\"><label>Collector name (optional)</label><input id=\"colName\"></div><div class=\"field\"><label>Specimen condition on receipt</label><select id=\"colCond\"><option>Acceptable</option><option>Haemolysed mild</option><option>Haemolysed moderate</option><option>Haemolysed marked</option><option>Lipaemic</option><option>Icteric</option><option>Clot present</option><option>Insufficient volume</option></select></div><div class=\"field\"><label>Receipt notes</label><input id=\"colNotes\" placeholder=\"Optional\"></div><div class=\"warn-box\"><i class=\"ti ti-clock\"></i> Verify collection-to-receipt time is within stability limits for the test ordered.</div>",
-[{label:"Cancel",cls:"btn",fn:closeModal},{label:"Reject",cls:"btn btn-danger",fn:()=>{const cond=document.getElementById("colCond").value;closeModal();rejectOrderModal(oid,cond);}},{label:"Accept and Receive",cls:"btn btn-primary",fn:()=>{
-const colDate=document.getElementById("colDate").value;const colTime=document.getElementById("colTime").value;const colId=document.getElementById("colId").value.trim();
-if(!colDate||!colTime||!colId){alert("Collection date, time, and collector ID are required.");return;}
-o.collectionDate=colDate;o.collectionTime=colTime;o.collectorId=colId;o.collectorName=document.getElementById("colName").value.trim();o.receiptCondition=document.getElementById("colCond").value;o.receiptNotes=document.getElementById("colNotes").value.trim();o.receivedAt=nowTime();o.status="received";
-closeModal();nav("results");}}]);
+function quickOrder(pid) { S._quickOrderPt=pid; nav('orders'); }
+
+let orderPtId='', orderPanels=[];
+function renderOrders() {
+  if(S._quickOrderPt){orderPtId=S._quickOrderPt;S._quickOrderPt=null;}
+  document.getElementById('topbar-right').innerHTML='';
+  const pt=S.patients.find(p=>p.id===orderPtId);
+  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis / Body Fluids',T:'Transfusion Medicine'};
+  const panelSections=['H','O','C','U','T'].map(dept=>{
+    const panels=Object.entries(PANELS).filter(([k,v])=>v.dept===dept);
+    return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">'+deptNames[dept]+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
+      panels.map(([k,v])=>'<span class="chip '+(orderPanels.includes(k)?'selected':'')+'" onclick="togglePanel(\''+k+'\')">'+v.name+'</span>').join('')+
+      '</div></div>';
+  }).join('');
+  const tubes=[...new Set(orderPanels.map(k=>PANELS[k]&&PANELS[k].tube).filter(Boolean))];
+  const tubeHtml=tubes.length?'<div class="card"><div class="card-title"><i class="ti ti-test-pipe"></i>Tubes Required</div>'+
+    tubes.map(t=>'<div style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px"><i class="ti ti-test-pipe"></i>'+t+'</div>').join('')+'</div>':'';
+  document.getElementById('content').innerHTML=
+    '<div class="grid2"><div>'+
+    '<div class="card"><div class="card-title"><i class="ti ti-user"></i>Select Patient</div>'+
+    '<div class="field"><label>Patient</label><select id="orderPtSel" onchange="orderPtId=this.value;orderPanels=[];renderOrders()">'+
+    '<option value="">-- Select --</option>'+
+    S.patients.map(p=>'<option value="'+p.id+'" '+(p.id===orderPtId?'selected':'')+'>'+ptName(p)+' ('+p.id+')</option>').join('')+
+    '</select></div>'+(pt?'<div class="info-box"><strong>'+ptName(pt)+'</strong> -- '+sexLabel(pt.sex)+', Age '+age(pt.dob)+'<br>'+(pt.ward||'')+' | '+(pt.physician||'')+'</div>':'')+
+    '</div><div class="card"><div class="card-title"><i class="ti ti-notes"></i>Requisition Details</div>'+
+    '<div class="field"><label>Clinical Indication</label><textarea id="orderInd" placeholder="e.g. Rule out anemia, pre-op workup..."></textarea></div>'+
+    '<div class="grid2"><div class="field"><label>Priority</label><select id="orderPri"><option>Routine</option><option>Urgent</option><option>STAT</option></select></div>'+
+    '<div class="field"><label>Collection Date</label><input type="date" id="orderDate" value="'+today()+'"></div></div></div></div>'+
+    '<div><div class="card"><div class="card-title"><i class="ti ti-clipboard-list"></i>Test Panels</div>'+panelSections+'</div>'+tubeHtml+
+    '<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="submitOrder()" '+(!orderPtId||!orderPanels.length?'disabled':'')+'>'+
+    '<i class="ti ti-send"></i>Submit Order'+(orderPanels.length?' ('+orderPanels.length+')':'')+
+    '</button></div></div>';
 }
-function rejectOrderModal(oid,prefillCond){
-const o=S.orders.find(x=>x.id===oid);if(!o)return;
-const pt=S.patients.find(p=>p.id===o.patientId);
-openModal("Reject Specimen -- "+(o.accession||o.panel),"<div class=\"danger-box\"><i class=\"ti ti-ban\"></i> <strong>Specimen Rejection</strong> -- This action logs the rejection. Recollection required for most reasons.</div><div class=\"info-box\" style=\"margin-bottom:12px\"><strong>"+ptName(pt)+"</strong> | "+o.panel+" | "+o.tube+(o.accession?" | "+o.accession:"")+"</div><div class=\"field\"><label>Rejection Reason *</label><select id=\"rejReason\"><option value=\"\">-- Select reason --</option>"+REJECTION_REASONS.map(r=>"<option value=\""+r.id+"\">"+r.label+"</option>").join("")+"</select></div><div class=\"field\"><label>Rejected by (initials) *</label><input id=\"rejBy\" placeholder=\"e.g. JM\"></div><div class=\"field\"><label>Additional notes</label><textarea id=\"rejNotes\">"+(prefillCond&&prefillCond!=="Acceptable"?prefillCond:"")+"</textarea></div><div class=\"field\"><label>Physician / ward notified?</label><select id=\"rejNotified\"><option>Not yet</option><option>Notified by phone</option><option>Notified in LIS</option></select></div>",
-[{label:"Cancel",cls:"btn",fn:closeModal},{label:"Confirm Rejection",cls:"btn btn-danger",fn:()=>{
-const reason=document.getElementById("rejReason").value;const by=document.getElementById("rejBy").value.trim();
-if(!reason||!by){alert("Rejection reason and initials are required.");return;}
-const rejDef=REJECTION_REASONS.find(r=>r.id===reason);
-o.status="rejected";o.rejectedAt=nowTime();o.rejectedBy=by;o.rejectionReason=reason;o.rejectionLabel=rejDef?rejDef.label:reason;o.rejectionNotes=document.getElementById("rejNotes").value.trim();o.rejectionNotified=document.getElementById("rejNotified").value;o.recollectRequired=rejDef?rejDef.recollect:false;
-closeModal();alert("Specimen rejected."+(o.recollectRequired?" Recollection required.":""));nav("rejected");}}]);
+function togglePanel(k) { const i=orderPanels.indexOf(k); if(i>=0) orderPanels.splice(i,1); else orderPanels.push(k); renderOrders(); }
+function submitOrder() {
+  if(!orderPtId||!orderPanels.length) return;
+  orderPanels.forEach(pk=>{
+    const panel=PANELS[pk];
+    S.orders.push({id:'ORD-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),patientId:orderPtId,
+      panel:panel.name,panelKey:pk,dept:panel.dept,tests:panel.tests,tube:panel.tube,
+      priority:document.getElementById('orderPri').value,indication:document.getElementById('orderInd').value,
+      date:document.getElementById('orderDate').value,status:'ordered',ts:Date.now(),accession:null});
+  });
+  const count=orderPanels.length; orderPanels=[]; orderPtId='';
+  alert(count+' order'+(count>1?'s':'')+' submitted.'); nav('accession');
 }
-function renderRejected(){
-document.getElementById("topbar-right").innerHTML="";
-const rejected=S.orders.filter(o=>o.status==="rejected");
-const rows=rejected.length?rejected.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<tr class=\"reject-row\"><td style=\"font-family:monospace;font-size:10px\">"+(o.accession||"--")+"</td><td><strong>"+ptName(pt)+"</strong><br><span style=\"font-size:10px\">"+(pt?pt.ward:"")+"</span></td><td>"+o.panel+"</td><td>"+(o.rejectionLabel||"--")+"</td><td>"+(o.recollectRequired?"<span class=\"badge badge-danger\">Yes</span>":"<span class=\"badge badge-gray\">No</span>")+"</td><td>"+(o.rejectedBy||"--")+"</td><td style=\"font-size:11px\">"+(o.rejectionNotified||"--")+"</td><td style=\"font-size:11px;color:#666\">"+(o.rejectedAt||"--")+"</td></tr>";}).join(""):"<tr><td colspan=\"8\"><div class=\"empty\">No rejected specimens</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Rejection Reason</th><th>Recollect?</th><th>By</th><th>Notified</th><th>Time</th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function renderAccession() {
+  document.getElementById('topbar-right').innerHTML='';
+  const pending=S.orders.filter(o=>o.status==='ordered');
+  const rows=pending.length?pending.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr><td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?pt.ward:'')+'</span></td>'+
+      '<td>'+o.panel+'</td>'+
+      '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
+      '<td style="font-size:11px">'+o.tube+'</td><td>'+o.date+'</td><td>'+o.dept+'</td>'+
+      '<td><button class="btn btn-sm btn-primary" onclick="accessionOrder(\''+o.id+'\')"><i class="ti ti-barcode"></i>Accession</button> '+
+      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>';
+  }).join(''):'<tr><td colspan="7"><div class="empty">No orders pending accessioning</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Patient</th><th>Panel</th><th>Priority</th><th>Tube</th><th>Date</th><th>Dept</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function renderResults(){
-document.getElementById("topbar-right").innerHTML="";
-const ready=S.orders.filter(o=>o.status==="received");
-const rows=ready.length?ready.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<tr><td style=\"font-family:monospace;font-size:10px\">"+o.accession+"</td><td><strong>"+ptName(pt)+"</strong><br><span style=\"font-size:10px;color:#666\">"+(pt?sexLabel(pt.sex)+", Age "+age(pt.dob):"")+"</span></td><td>"+o.panel+"</td><td style=\"font-size:11px\">"+(o.collectionDate||"?")+" "+(o.collectionTime||"")+"</td><td style=\"font-family:monospace;font-size:11px\">"+(o.collectorId||"--")+"</td><td style=\"font-size:11px\">"+(o.receiptCondition||"--")+"</td><td><span class=\"badge "+(o.priority==="STAT"?"badge-danger":o.priority==="Urgent"?"badge-warning":"badge-gray")+"\">"+o.priority+"</span></td><td><button class=\"btn btn-sm btn-primary\" onclick=\"enterResults('"+o.id+"')\"><i class=\"ti ti-edit\"></i>Enter</button></td></tr>";}).join(""):"<tr><td colspan=\"8\"><div class=\"empty\">No specimens ready -- receive specimens first</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Collected</th><th>Collector ID</th><th>Condition</th><th>Priority</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function accessionOrder(oid) {
+  const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const acc=genAcc(o.dept);
+  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion'};
+  openModal('Accession Specimen',
+    '<div class="grid2" style="margin-bottom:12px">'+
+    '<div><div class="stat-label">Patient</div><div><strong>'+ptName(pt)+'</strong></div></div>'+
+    '<div><div class="stat-label">Panel</div><div>'+o.panel+'</div></div>'+
+    '<div><div class="stat-label">Accession #</div><div style="font-family:monospace;font-size:16px;font-weight:500;color:#185fa5">'+acc+'</div></div>'+
+    '<div><div class="stat-label">Dept</div><div>'+o.dept+'</div></div></div>'+
+    '<div class="info-box" style="margin-bottom:12px">Breakdown: '+acc.slice(0,2)+' Year | RD Facility | '+acc.slice(4,7)+' Day | '+o.dept+' '+(deptNames[o.dept]||o.dept)+' | '+acc.slice(-5)+' Sequential</div>'+
+    '<div class="grid2"><div class="field"><label>Received at lab (time)</label><input id="accTime" value="'+nowTime()+'"></div>'+
+    '<div class="field"><label>Received by (initials)</label><input id="accBy" placeholder="e.g. JM"></div></div>'+
+    '<div class="field"><label>Initial specimen appearance</label><select id="accApp">'+
+    '<option>Acceptable</option><option>Haemolysed</option><option>Lipaemic</option><option>Icteric</option>'+
+    '<option>Insufficient volume</option><option>Wrong tube</option><option>Unlabelled</option></select></div>'+
+    '<div class="field"><label>Notes</label><input id="accNotes" placeholder="Optional"></div>',
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Reject',cls:'btn btn-danger',fn:()=>{const app=document.getElementById('accApp').value;closeModal();rejectOrderModal(oid,app);}},
+     {label:'Confirm Accession',cls:'btn btn-primary',fn:()=>{
+      o.accession=acc; o.status='accessioned';
+      o.accessionedBy=document.getElementById('accBy').value;
+      o.accessionTime=document.getElementById('accTime').value;
+      o.specimenNotes=document.getElementById('accApp').value+(document.getElementById('accNotes').value?' -- '+document.getElementById('accNotes').value:'');
+      closeModal(); nav('receive');
+    }}]);
 }
-function enterResults(oid){
-const o=S.orders.find(x=>x.id===oid);if(!o)return;
-const pt=S.patients.find(p=>p.id===o.patientId);
-const isPeds=pt&&age(pt.dob)<18;const sex=pt?pt.sex:"M";
-const existing={};S.results.filter(r=>r.orderId===oid).forEach(r=>{existing[r.testKey]=r.value;});
-const nonBinary=(sex==="X"||sex==="U");
-const rows=o.tests.map(tk=>{
-const r=REF[tk];if(!r)return"";
-const rs=refSex(sex);let lo=r.lo,hi=r.hi;
-if(rs==="F"){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
-const pedsNote=isPeds&&r.peds?"<span style=\"color:#854f0b;font-size:10px\"> Peds: "+r.peds+"</span>":"";
-const nbNote=nonBinary&&r.femLo!=null?"<span style=\"font-size:10px;color:#666\"> (unisex)</span>":"";
-if(r.qualitative){return "<tr><td style=\"font-weight:500\">"+r.name+"</td><td><select id=\"res_"+tk+"\" style=\"padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit\"><option value=\"\">--</option>"+r.options.map(op=>"<option "+(existing[tk]===op?"selected":"")+">"+op+"</option>").join("")+"</select></td><td style=\"font-size:11px;color:#666\">"+r.options.join(" / ")+pedsNote+"</td><td id=\"flag_"+tk+"\"></td></tr>";}
-return "<tr><td style=\"font-weight:500\">"+r.name+"</td><td><input id=\"res_"+tk+"\" type=\"number\" step=\"any\" value=\""+(existing[tk]||"")+"\" style=\"width:90px;padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit\" oninput=\"liveFlag('"+tk+"','"+sex+"')\" ></td><td style=\"font-size:11px;color:#666\">"+lo+"--"+hi+" "+r.unit+nbNote+pedsNote+"</td><td id=\"flag_"+tk+"\"></td></tr>";
-}).join("");
-openModal("Enter Results -- "+o.accession,"<div style=\"display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666\"><strong>"+ptName(pt)+"</strong><span>"+sexLabel(sex)+"</span><span>Age "+(pt?age(pt.dob):"?")+"</span><span>"+o.panel+"</span>"+(isPeds?"<span class=\"badge badge-warning\">Paediatric</span>":"")+(nonBinary?"<span class=\"badge badge-purple\">Unisex ranges</span>":"")+"</div><table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>"+rows+"</tbody></table>",
-[{label:"Cancel",cls:"btn",fn:closeModal},{label:"Save Results",cls:"btn btn-primary",fn:()=>{
-S.results=S.results.filter(r=>r.orderId!==oid);let hasCrit=false;
-o.tests.forEach(tk=>{const el=document.getElementById("res_"+tk);if(!el||!el.value)return;const crit=isCrit(tk,el.value,sex);if(crit)hasCrit=true;S.results.push({id:"RES-"+Date.now()+"-"+tk,orderId:oid,testKey:tk,value:el.value,accession:o.accession,critical:crit,callbackDone:false,enteredAt:nowTime(),ts:Date.now()});});
-o.status="resulted";closeModal();
-if(hasCrit)alert("CRITICAL VALUE(S) detected. Notify physician immediately and document callback.");
-nav("verify");}}]);
+
+function renderReceive() {
+  document.getElementById('topbar-right').innerHTML='';
+  const ready=S.orders.filter(o=>o.status==='accessioned');
+  const rows=ready.length?ready.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+'</span></td>'+
+      '<td>'+o.panel+'</td><td style="font-size:11px">'+o.tube+'</td>'+
+      '<td style="font-size:11px;color:#666">'+(o.accessionTime||'--')+' ('+(o.accessionedBy||'?')+')</td>'+
+      '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
+      '<td><button class="btn btn-sm btn-primary" onclick="receiveSpecimen(\''+o.id+'\')"><i class="ti ti-inbox"></i>Receive</button> '+
+      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>';
+  }).join(''):'<tr><td colspan="7"><div class="empty">No accessioned specimens awaiting receipt</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="info-box" style="margin-bottom:14px"><i class="ti ti-info-circle"></i> Enter original collection time, date, and collector ID before specimens proceed to result entry.</div>'+
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Tube</th><th>Accessioned</th><th>Priority</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function liveFlag(tk,sex){const el=document.getElementById("res_"+tk);const flagEl=document.getElementById("flag_"+tk);if(!el||!flagEl)return;const f=getFlag(tk,el.value,sex);flagEl.innerHTML=f.flag?"<span class=\""+f.cls+"\">"+f.flag+"</span>":"";}
-function renderVerify(){
-document.getElementById("topbar-right").innerHTML="";
-const ready=S.orders.filter(o=>o.status==="resulted");
-const rows=ready.length?ready.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);const res=S.results.filter(r=>r.orderId===o.id);const hasCrit=res.some(r=>r.critical);return "<tr "+(hasCrit?"class=\"crit-row\""":"")+"><td style=\"font-family:monospace;font-size:10px\">"+o.accession+"</td><td><strong>"+ptName(pt)+"</strong></td><td>"+o.panel+"</td><td style=\"font-size:11px;color:#666\">"+res.length+" result"+(res.length!==1?"s":"")+"</td><td>"+(hasCrit?"<span class=\"badge badge-danger\">Critical</span>":"<span class=\"badge badge-success\">No</span>")+"</td><td style=\"display:flex;gap:5px\"><button class=\"btn btn-sm\" onclick=\"reviewResults('"+o.id+"')\"><i class=\"ti ti-eye\"></i>Review</button><button class=\"btn btn-sm btn-success\" onclick=\"verifyOrder('"+o.id+"')\"><i class=\"ti ti-check\"></i>Verify</button></td></tr>";}).join(""):"<tr><td colspan=\"6\"><div class=\"empty\">No results awaiting verification</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Results</th><th>Critical?</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function receiveSpecimen(oid) {
+  const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  openModal('Receive Specimen -- '+o.accession,
+    '<div class="info-box" style="margin-bottom:14px"><strong>'+ptName(pt)+'</strong> | '+o.panel+' | '+o.tube+'</div>'+
+    '<div style="font-weight:500;font-size:12px;margin-bottom:10px">Collection information (as labelled on tube)</div>'+
+    '<div class="grid2"><div class="field"><label>Collection Date *</label><input id="colDate" type="date" value="'+o.date+'"></div>'+
+    '<div class="field"><label>Collection Time *</label><input id="colTime" type="time"></div></div>'+
+    '<div class="field"><label>Collector ID * (employee ID, student ID, or initials)</label><input id="colId" placeholder="e.g. JM or S12345"></div>'+
+    '<div class="field"><label>Collector name (optional)</label><input id="colName"></div>'+
+    '<div class="field"><label>Specimen condition on receipt</label><select id="colCond">'+
+    '<option>Acceptable</option><option>Haemolysed mild</option><option>Haemolysed moderate</option>'+
+    '<option>Haemolysed marked</option><option>Lipaemic</option><option>Icteric</option>'+
+    '<option>Clot present</option><option>Insufficient volume</option></select></div>'+
+    '<div class="field"><label>Receipt notes</label><input id="colNotes" placeholder="Optional"></div>'+
+    '<div class="warn-box"><i class="ti ti-clock"></i> Verify collection-to-receipt time is within stability limits for the test ordered.</div>',
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Reject',cls:'btn btn-danger',fn:()=>{const cond=document.getElementById('colCond').value;closeModal();rejectOrderModal(oid,cond);}},
+     {label:'Accept and Receive',cls:'btn btn-primary',fn:()=>{
+      const colDate=document.getElementById('colDate').value;
+      const colTime=document.getElementById('colTime').value;
+      const colId=document.getElementById('colId').value.trim();
+      if(!colDate||!colTime||!colId){alert('Collection date, time, and collector ID are required.');return;}
+      o.collectionDate=colDate; o.collectionTime=colTime; o.collectorId=colId;
+      o.collectorName=document.getElementById('colName').value.trim();
+      o.receiptCondition=document.getElementById('colCond').value;
+      o.receiptNotes=document.getElementById('colNotes').value.trim();
+      o.receivedAt=nowTime(); o.status='received';
+      closeModal(); nav('results');
+    }}]);
 }
-function reviewResults(oid){
-const o=S.orders.find(x=>x.id===oid);const pt=S.patients.find(p=>p.id===o.patientId);
-const res=S.results.filter(r=>r.orderId===oid);const sex=pt?pt.sex:"M";
-const rows=res.map(r=>{const ref=REF[r.testKey];const fl=getFlag(r.testKey,r.value,sex);const rs=refSex(sex);let lo=ref?ref.lo:null,hi=ref?ref.hi:null;if(rs==="F"){if(ref&&ref.femLo!=null)lo=ref.femLo;if(ref&&ref.femHi!=null)hi=ref.femHi;}return "<tr "+(r.critical?"class=\"crit-row\""":"")+"><td>"+(ref?ref.name:r.testKey)+"</td><td><span class=\""+fl.cls+"\">"+r.value+"</span></td><td style=\"color:#666\">"+(ref&&!ref.qualitative?ref.unit:"")+"</td><td><span class=\""+fl.cls+"\">"+( fl.flag||"--")+"</span></td><td style=\"font-size:11px;color:#666\">"+(ref&&!ref.qualitative?lo+"--"+hi:"--")+"</td></tr>";}).join("");
-openModal("Review -- "+o.accession,"<div style=\"display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666\"><strong>"+ptName(pt)+"</strong><span>"+sexLabel(sex)+", Age "+(pt?age(pt.dob):"?")+"</span><span>"+o.panel+"</span></div><table><thead><tr><th>Analyte</th><th>Result</th><th>Unit</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>"+rows+"</tbody></table>",
-[{label:"Close",cls:"btn",fn:closeModal},{label:"Verify and Release",cls:"btn btn-success",fn:()=>{verifyOrder(oid);closeModal();}}]);
+
+function rejectOrderModal(oid, prefillCond) {
+  const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const reasonOpts=REJECTION_REASONS.map(r=>'<option value="'+r.id+'">'+r.label+'</option>').join('');
+  openModal('Reject Specimen -- '+(o.accession||o.panel),
+    '<div class="danger-box"><i class="ti ti-ban"></i> <strong>Specimen Rejection</strong> -- This action logs the rejection. Recollection required for most reasons.</div>'+
+    '<div class="info-box" style="margin-bottom:12px"><strong>'+ptName(pt)+'</strong> | '+o.panel+' | '+o.tube+(o.accession?' | '+o.accession:'')+'</div>'+
+    '<div class="field"><label>Rejection Reason *</label><select id="rejReason"><option value="">-- Select reason --</option>'+reasonOpts+'</select></div>'+
+    '<div class="field"><label>Rejected by (initials) *</label><input id="rejBy" placeholder="e.g. JM"></div>'+
+    '<div class="field"><label>Additional notes</label><textarea id="rejNotes">'+(prefillCond&&prefillCond!=='Acceptable'?prefillCond:'')+'</textarea></div>'+
+    '<div class="field"><label>Physician / ward notified?</label><select id="rejNotified"><option>Not yet</option><option>Notified by phone</option><option>Notified in LIS</option></select></div>',
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Confirm Rejection',cls:'btn btn-danger',fn:()=>{
+      const reason=document.getElementById('rejReason').value;
+      const by=document.getElementById('rejBy').value.trim();
+      if(!reason||!by){alert('Rejection reason and initials are required.');return;}
+      const rejDef=REJECTION_REASONS.find(r=>r.id===reason);
+      o.status='rejected'; o.rejectedAt=nowTime(); o.rejectedBy=by;
+      o.rejectionReason=reason; o.rejectionLabel=rejDef?rejDef.label:reason;
+      o.rejectionNotes=document.getElementById('rejNotes').value.trim();
+      o.rejectionNotified=document.getElementById('rejNotified').value;
+      o.recollectRequired=rejDef?rejDef.recollect:false;
+      closeModal();
+      alert('Specimen rejected.'+(o.recollectRequired?' Recollection required.':''));
+      nav('rejected');
+    }}]);
 }
-function verifyOrder(oid){const o=S.orders.find(x=>x.id===oid);if(o){o.status="verified";o.verifiedAt=nowTime();}closeModal();nav("reports");}
-function renderReports(){
-document.getElementById("topbar-right").innerHTML="";
-const verified=S.orders.filter(o=>o.status==="verified");
-const rows=verified.length?verified.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<tr><td style=\"font-family:monospace;font-size:10px\">"+o.accession+"</td><td><strong>"+ptName(pt)+"</strong></td><td>"+o.panel+"</td><td style=\"font-family:monospace;font-size:11px\">"+(o.collectorId||"--")+"</td><td style=\"font-size:11px;color:#666\">"+(o.verifiedAt||"--")+"</td><td><button class=\"btn btn-sm btn-primary\" onclick=\"showReport('"+o.id+"')\"><i class=\"ti ti-file-analytics\"></i>View</button> <button class=\"btn btn-sm\" onclick=\"sendToAI('"+o.id+"')\"><i class=\"ti ti-robot\"></i>Interpret</button></td></tr>";}).join(""):"<tr><td colspan=\"6\"><div class=\"empty\">No verified reports yet</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Collector ID</th><th>Verified</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function renderRejected() {
+  document.getElementById('topbar-right').innerHTML='';
+  const rejected=S.orders.filter(o=>o.status==='rejected');
+  const rows=rejected.length?rejected.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr class="reject-row">'+
+      '<td style="font-family:monospace;font-size:10px">'+(o.accession||'--')+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px">'+(pt?pt.ward:'')+'</span></td>'+
+      '<td>'+o.panel+'</td><td>'+(o.rejectionLabel||'--')+'</td>'+
+      '<td>'+(o.recollectRequired?'<span class="badge badge-danger">Yes</span>':'<span class="badge badge-gray">No</span>')+'</td>'+
+      '<td>'+(o.rejectedBy||'--')+'</td>'+
+      '<td style="font-size:11px">'+(o.rejectionNotified||'--')+'</td>'+
+      '<td style="font-size:11px;color:#666">'+(o.rejectedAt||'--')+'</td></tr>';
+  }).join(''):'<tr><td colspan="8"><div class="empty">No rejected specimens</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Rejection Reason</th><th>Recollect?</th><th>By</th><th>Notified</th><th>Time</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function showReport(oid){
-const o=S.orders.find(x=>x.id===oid);const pt=S.patients.find(p=>p.id===o.patientId);
-const res=S.results.filter(r=>r.orderId===oid);const sex=pt?pt.sex:"M";
-const rows=res.map(r=>{const ref=REF[r.testKey];const fl=getFlag(r.testKey,r.value,sex);const rs=refSex(sex);let lo=ref?ref.lo:null,hi=ref?ref.hi:null;if(rs==="F"){if(ref&&ref.femLo!=null)lo=ref.femLo;if(ref&&ref.femHi!=null)hi=ref.femHi;}const refStr=ref?(ref.qualitative?"See options":lo+"--"+hi+" "+ref.unit):"";const pedsNote=pt&&age(pt.dob)<18&&ref&&ref.peds?" | Peds: "+ref.peds:"";return "<tr "+(r.critical?"class=\"crit-row\""":"")+"><td>"+(ref?ref.name:r.testKey)+"</td><td style=\"font-weight:500\"><span class=\""+fl.cls+"\">"+r.value+(ref&&!ref.qualitative?" "+ref.unit:"")+"</span></td><td style=\"color:#666;font-size:11px\">"+(ref&&!ref.qualitative?ref.unit:"")+"</td><td><span class=\""+fl.cls+"\">"+( fl.flag||"")+"</span>"+(r.critical?"<span class=\"badge badge-danger\" style=\"margin-left:4px\">CRITICAL</span>":"")+"</td><td style=\"font-size:10px;color:#666\">"+refStr+pedsNote+"</td></tr>";}).join("");
-openModal("Lab Report -- "+o.accession,"<div style=\"font-size:11px;background:#f9f9f7;border-radius:8px;padding:14px;margin-bottom:14px\"><div style=\"font-size:13px;font-weight:500;margin-bottom:8px\">RED DEER POLYTECHNIC -- EDUCATIONAL LABORATORY</div><div style=\"display:grid;grid-template-columns:1fr 1fr;gap:4px\"><div>Patient: <strong>"+ptName(pt)+"</strong></div><div>Accession #: <strong>"+o.accession+"</strong></div><div>DOB: "+(pt?pt.dob:"?")+" | Sex: "+sexLabel(sex)+" | Age: "+(pt?age(pt.dob):"?")+"</div><div>Order date: "+o.date+"</div><div>Health #: "+(pt?pt.healthNum||"--":"?")+"</div><div>Verified: "+(o.verifiedAt||"--")+"</div><div>Physician: "+(pt?pt.physician||"--":"?")+"</div><div>Ward: "+(pt?pt.ward||"--":"?")+"</div><div>Collector ID: "+(o.collectorId||"--")+(o.collectorName?" ("+o.collectorName+")":"")+"</div><div>Collection: "+(o.collectionDate||"?")+" "+(o.collectionTime||"")+"</div><div>Indication: "+(o.indication||"--")+"</div><div>Priority: "+o.priority+"</div></div></div><table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>"+rows+"</tbody></table><div style=\"margin-top:12px;font-size:10px;color:#666\">FOR EDUCATIONAL USE ONLY -- NOT FOR CLINICAL DECISIONS</div>",
-[{label:"Close",cls:"btn",fn:closeModal},{label:"Interpret with AI",cls:"btn btn-primary",fn:()=>{closeModal();sendToAI(oid);}}]);
+
+function renderResults() {
+  document.getElementById('topbar-right').innerHTML='';
+  const ready=S.orders.filter(o=>o.status==='received');
+  const rows=ready.length?ready.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+'</span></td>'+
+      '<td>'+o.panel+'</td>'+
+      '<td style="font-size:11px">'+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</td>'+
+      '<td style="font-family:monospace;font-size:11px">'+(o.collectorId||'--')+'</td>'+
+      '<td style="font-size:11px">'+(o.receiptCondition||'--')+'</td>'+
+      '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
+      '<td><button class="btn btn-sm btn-primary" onclick="enterResults(\''+o.id+'\')"><i class="ti ti-edit"></i>Enter</button></td></tr>';
+  }).join(''):'<tr><td colspan="8"><div class="empty">No specimens ready -- receive specimens first</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Collected</th><th>Collector ID</th><th>Condition</th><th>Priority</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function renderSection(dept){
-const names={H:"Hematology",O:"Coagulation",C:"Chemistry",U:"Urinalysis / Body Fluids",T:"Transfusion Medicine"};
-document.getElementById("topbar-right").innerHTML="";
-const orders=S.orders.filter(o=>o.dept===dept);
-const rows=orders.length?orders.map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);const action=o.status==="ordered"?"<button class=\"btn btn-sm btn-primary\" onclick=\"accessionOrder('"+o.id+"')\" ><i class=\"ti ti-barcode\"></i>Accession</button>":o.status==="accessioned"?"<button class=\"btn btn-sm btn-primary\" onclick=\"receiveSpecimen('"+o.id+"')\" ><i class=\"ti ti-inbox\"></i>Receive</button>":o.status==="received"?"<button class=\"btn btn-sm btn-primary\" onclick=\"enterResults('"+o.id+"')\" ><i class=\"ti ti-edit\"></i>Results</button>":o.status==="resulted"?"<button class=\"btn btn-sm btn-success\" onclick=\"reviewResults('"+o.id+"')\" ><i class=\"ti ti-eye\"></i>Verify</button>":o.status==="verified"?"<button class=\"btn btn-sm\" onclick=\"showReport('"+o.id+"')\" ><i class=\"ti ti-file-analytics\"></i>Report</button>":"<span class=\"badge badge-danger\">Rejected</span>";return "<tr><td style=\"font-family:monospace;font-size:10px\">"+(o.accession||"--")+"</td><td>"+ptName(pt)+"</td><td>"+o.panel+"</td><td><span class=\"badge "+(o.priority==="STAT"?"badge-danger":o.priority==="Urgent"?"badge-warning":"badge-gray")+"\">"+o.priority+"</span></td><td><span class=\"badge "+statusBadge(o.status)+"\">"+statusLabel(o.status)+"</span></td><td>"+action+"</td></tr>";}).join(""):"<tr><td colspan=\"6\"><div class=\"empty\">No orders for "+names[dept]+"</div></td></tr>";
-document.getElementById("content").innerHTML="<div class=\"grid4\" style=\"margin-bottom:14px\"><div class=\"stat\"><div class=\"stat-label\">Total</div><div class=\"stat-value\">"+orders.length+"</div></div><div class=\"stat\"><div class=\"stat-label\">Pending</div><div class=\"stat-value\">"+orders.filter(o=>["ordered","accessioned","received"].includes(o.status)).length+"</div></div><div class=\"stat\"><div class=\"stat-label\">Resulted</div><div class=\"stat-value\">"+orders.filter(o=>o.status==="resulted").length+"</div></div><div class=\"stat\"><div class=\"stat-label\">Verified</div><div class=\"stat-value\">"+orders.filter(o=>o.status==="verified").length+"</div></div></div><div class=\"card\" style=\"padding:0;overflow:hidden\"><table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+function enterResults(oid) {
+  const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const isPeds=pt&&age(pt.dob)<18;
+  const sex=pt?pt.sex:'M';
+  const existing={};
+  S.results.filter(r=>r.orderId===oid).forEach(r=>{existing[r.testKey]=r.value;});
+  const nonBinary=(sex==='X'||sex==='U');
+  const rows=o.tests.map(tk=>{
+    const r=REF[tk]; if(!r) return '';
+    const rs=refSex(sex); let lo=r.lo, hi=r.hi;
+    if(rs==='F'){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
+    const pedsNote=isPeds&&r.peds?'<span style="color:#854f0b;font-size:10px"> Peds: '+r.peds+'</span>':'';
+    const nbNote=nonBinary&&r.femLo!=null?'<span style="font-size:10px;color:#666"> (unisex)</span>':'';
+    if(r.qualitative){
+      return '<tr><td style="font-weight:500">'+r.name+'</td>'+
+        '<td><select id="res_'+tk+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit">'+
+        '<option value="">--</option>'+r.options.map(op=>'<option '+(existing[tk]===op?'selected':'')+'>'+op+'</option>').join('')+
+        '</select></td><td style="font-size:11px;color:#666">'+r.options.join(' / ')+pedsNote+'</td><td id="flag_'+tk+'"></td></tr>';
+    }
+    return '<tr><td style="font-weight:500">'+r.name+'</td>'+
+      '<td><input id="res_'+tk+'" type="number" step="any" value="'+(existing[tk]||'')+'" '+
+      'style="width:90px;padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit" '+
+      'oninput="liveFlag(\''+tk+'\',\''+sex+'\')"></td>'+
+      '<td style="font-size:11px;color:#666">'+lo+'--'+hi+' '+r.unit+nbNote+pedsNote+'</td>'+
+      '<td id="flag_'+tk+'"></td></tr>';
+  }).join('');
+  openModal('Enter Results -- '+o.accession,
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666">'+
+    '<strong>'+ptName(pt)+'</strong><span>'+sexLabel(sex)+'</span><span>Age '+(pt?age(pt.dob):'?')+'</span><span>'+o.panel+'</span>'+
+    (isPeds?'<span class="badge badge-warning">Paediatric</span>':'')+
+    (nonBinary?'<span class="badge badge-purple">Unisex ranges</span>':'')+
+    '</div><table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>'+rows+'</tbody></table>',
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Save Results',cls:'btn btn-primary',fn:()=>{
+      S.results=S.results.filter(r=>r.orderId!==oid);
+      let hasCrit=false;
+      o.tests.forEach(tk=>{
+        const el=document.getElementById('res_'+tk);
+        if(!el||!el.value) return;
+        const crit=isCrit(tk,el.value,sex);
+        if(crit) hasCrit=true;
+        S.results.push({id:'RES-'+Date.now()+'-'+tk,orderId:oid,testKey:tk,value:el.value,
+          accession:o.accession,critical:crit,callbackDone:false,enteredAt:nowTime(),ts:Date.now()});
+      });
+      o.status='resulted'; closeModal();
+      if(hasCrit) alert('CRITICAL VALUE(S) detected. Notify physician immediately and document callback.');
+      nav('verify');
+    }}]);
 }
-const CHECKLIST_ITEMS={"Pre-Collection":["Verified patient identity using two identifiers (name + DOB / health card)","Confirmed requisition matches patient wristband / chart","Checked for patient preparation requirements (fasting, timed collection, etc.)","Reviewed contraindications (allergy, anticoagulation, AV fistula, mastectomy side)","Explained procedure to patient and obtained consent","Assembled correct supplies and tubes for ordered tests","Verified tube expiry dates","Performed hand hygiene and applied appropriate PPE"],"Site Selection and Preparation":["Selected appropriate venipuncture site","Avoided contraindicated sites (hematoma, oedema, IV line side, scarring)","Applied tourniquet correctly (no more than 1 minute)","Identified and palpated vein before cleaning","Cleaned site with 70% isopropyl alcohol and allowed to dry fully","Did not re-palpate site after cleaning without re-cleaning"],"Collection":["Anchored vein correctly before needle insertion","Inserted needle bevel-up at correct angle (15-30 degrees)","Used correct order of draw for multiple tubes","Filled tubes to appropriate volume (respected fill lines)","Mixed anticoagulated tubes by gentle inversion (correct number of inversions per tube)","Released tourniquet before or upon needle withdrawal","Applied pressure to site immediately after needle withdrawal","Activated needle safety device before disposal","Disposed of needle directly into sharps container without recapping"],"Post-Collection":["Labelled tubes at bedside immediately after collection","Confirmed labels match requisition (patient name, ID, date, time, collector ID)","Documented collection time and collector ID on requisition","Checked collection site for hematoma or continued bleeding","Applied bandage to site and confirmed patient comfortable","Removed gloves and performed hand hygiene","Transported specimen appropriately (temperature, time requirements)"],"Specimen Receipt and Rejection":["Verified accession number matches requisition","Confirmed specimen label is legible and complete","Assessed specimen for haemolysis, lipaemia, icteria","Verified correct tube type for tests ordered","Confirmed adequate specimen volume (not QNS)","Checked collection-to-receipt time against stability limits","Documented rejection with reason and notified appropriate personnel if rejecting"],"Professionalism and Safety":["Maintained patient confidentiality throughout","Demonstrated respectful, patient-centred communication","Maintained a clean and organized workspace","Responded appropriately to patient adverse reaction (vaso-vagal, etc.)","Completed documentation accurately and legibly"]};
-let checklistState={},checklistStudent="",checklistDate=today(),checklistEval="";
-function renderChecklist(){
-document.getElementById("topbar-right").innerHTML="<button class=\"btn\" onclick=\"window.print()\"><i class=\"ti ti-printer\"></i>Print</button> <button class=\"btn btn-danger btn-sm\" onclick=\"resetChecklist()\"><i class=\"ti ti-refresh\"></i>Reset</button>";
-const totalItems=Object.values(CHECKLIST_ITEMS).flat().length;
-const checkedItems=Object.values(checklistState).filter(v=>v==="met").length;
-const sections=Object.entries(CHECKLIST_ITEMS).map(([section,items])=>"<div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-checkbox\"></i>"+section+"</div><table><thead><tr><th style=\"width:36px\"></th><th>Competency Item</th><th style=\"width:70px;text-align:center\">Met</th><th style=\"width:70px;text-align:center\">Not Met</th><th>Comments</th></tr></thead><tbody>"+items.map((item,i)=>{const key=section+"::"+i;const val=checklistState[key];return "<tr><td style=\"text-align:center\"><input type=\"checkbox\" "+(val==="met"?"checked":"")+' onchange="toggleCheck(''+key+'',this.checked)"></td><td style="font-size:12px">'+item+"</td><td style=\"text-align:center\"><input type=\"radio\" name=\"cl_"+key+"\" value=\"met\" "+(val==="met"?"checked":"")+" onchange=\"setCheck('"+key+"','met')\" ></td><td style=\"text-align:center\"><input type=\"radio\" name=\"cl_"+key+"\" value=\"notmet\" "+(val==="notmet"?"checked":"")+" onchange=\"setCheck('"+key+"','notmet')\" ></td><td><input style=\"width:100%;padding:3px 6px;border:0.5px solid #ccc;border-radius:4px;font-size:11px;background:#fff;color:#111;font-family:inherit\" placeholder=\"\"></td></tr>";}).join("")+"</tbody></table></div>").join("");
-document.getElementById("content").innerHTML="<div class=\"card\" style=\"margin-bottom:14px\"><div class=\"card-title\"><i class=\"ti ti-clipboard-text\"></i>Specimen Collection Competency Checklist -- MLA Program, Red Deer Polytechnic</div><div class=\"grid3\"><div class=\"field\"><label>Student Name</label><input id=\"cl-student\" value=\""+checklistStudent+"\" oninput=\"checklistStudent=this.value\" placeholder=\"Full name\"></div><div class=\"field\"><label>Assessment Date</label><input id=\"cl-date\" type=\"date\" value=\""+checklistDate+"\" oninput=\"checklistDate=this.value\"></div><div class=\"field\"><label>Evaluator</label><input id=\"cl-eval\" value=\""+checklistEval+"\" oninput=\"checklistEval=this.value\" placeholder=\"Name or initials\"></div></div><div style=\"display:flex;gap:10px;margin-top:4px\"><div class=\"stat\" style=\"flex:1\"><div class=\"stat-label\">Items Completed</div><div class=\"stat-value\">"+checkedItems+" / "+totalItems+"</div></div><div class=\"stat\" style=\"flex:1\"><div class=\"stat-label\">Score</div><div class=\"stat-value\">"+(totalItems>0?Math.round(checkedItems/totalItems*100):0)+"%</div></div><div class=\"stat\" style=\"flex:1\"><div class=\"stat-label\">Status</div><div class=\"stat-value\" style=\"font-size:14px;color:"+(checkedItems===totalItems?"#3b6d11":"#854f0b")+"\">"+(checkedItems===totalItems?"Complete":"In progress")+"</div></div></div></div>"+sections+"<div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-writing\"></i>Overall Comments</div><div class=\"field\"><label>Evaluator comments</label><textarea style=\"min-height:80px\" placeholder=\"Strengths, areas for improvement...\"></textarea></div><div class=\"grid2\" style=\"margin-top:14px;padding-top:14px;border-top:0.5px solid #e5e5e5\"><div><div style=\"font-size:11px;color:#666;margin-bottom:20px\">Student Signature</div><div style=\"border-bottom:0.5px solid #111;height:24px;margin-bottom:4px\"></div><div style=\"font-size:10px;color:#666\">"+(checklistStudent||"Student name")+"</div></div><div><div style=\"font-size:11px;color:#666;margin-bottom:20px\">Evaluator Signature</div><div style=\"border-bottom:0.5px solid #111;height:24px;margin-bottom:4px\"></div><div style=\"font-size:10px;color:#666\">"+(checklistEval||"Evaluator name")+"</div></div></div><div style=\"font-size:10px;color:#666;margin-top:12px;text-align:center\">Red Deer Polytechnic -- MLA Program -- Specimen Collection Competency Checklist | "+checklistDate+"</div></div>";
+function liveFlag(tk,sex) {
+  const el=document.getElementById('res_'+tk);
+  const flagEl=document.getElementById('flag_'+tk);
+  if(!el||!flagEl) return;
+  const f=getFlag(tk,el.value,sex);
+  flagEl.innerHTML=f.flag?'<span class="'+f.cls+'">'+f.flag+'</span>':'';
 }
-function toggleCheck(key,checked){checklistState[key]=checked?"met":undefined;renderChecklist();}
-function setCheck(key,val){checklistState[key]=val;renderChecklist();}
-function resetChecklist(){if(confirm("Reset checklist?")){{checklistState={};checklistStudent="";checklistEval="";renderChecklist();}}}
-function renderAI(){
-document.getElementById("topbar-right").innerHTML="";
-const reportList=S.orders.filter(o=>o.status==="verified").slice(0,5).map(o=>{const pt=S.patients.find(p=>p.id===o.patientId);return "<div style=\"display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5\"><span style=\"font-size:12px\">"+ptName(pt)+" -- "+o.panel+"</span><button class=\"btn btn-sm btn-primary\" onclick=\"sendToAI('"+o.id+"')\" ><i class=\"ti ti-robot\"></i>Interpret</button></div>";}).join("")||"<div style=\"font-size:12px;color:#666\">No verified reports yet</div>";
-const suggestions=["What does a high MCV indicate?","Explain PT vs aPTT","What causes thrombocytopenia?","Why use a citrate tube for coag?","What is a positive antibody screen?","What are critical value callback procedures?","Explain the order of draw","What causes haemolysis in a specimen?"].map(q=>"<div class=\"chip\" style=\"margin:3px;display:inline-flex\" onclick=\"askAI('"+q+"')\" >"+q+"</div>").join("");
-document.getElementById("content").innerHTML="<div class=\"grid2\" style=\"gap:14px\"><div><div class=\"card ai-wrap\" style=\"padding:0\"><div class=\"ai-messages\" id=\"ai-msgs\">"+renderAIMsgs()+"</div><div class=\"ai-input-row\"><input id=\"ai-input\" placeholder=\"Ask about a result, flag, tube, or test...\" onkeydown=\"if(event.key==='Enter')sendAI()\"><button class=\"btn btn-primary btn-sm\" onclick=\"sendAI()\" id=\"ai-send-btn\"><i class=\"ti ti-send\"></i></button></div></div></div><div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-bulb\"></i>Suggested questions</div>"+suggestions+"</div><div class=\"card\"><div class=\"card-title\"><i class=\"ti ti-file-text\"></i>Interpret a report</div>"+reportList+"</div></div></div>";
-if(S._aiContext){const ctx=S._aiContext;S._aiContext=null;S.aiMessages.push({role:"user",content:"Please interpret these lab results:\n\n"+ctx});updateAI();callAI();}
-else scrollAI();
+
+function renderVerify() {
+  document.getElementById('topbar-right').innerHTML='';
+  const ready=S.orders.filter(o=>o.status==='resulted');
+  const rows=ready.length?ready.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    const res=S.results.filter(r=>r.orderId===o.id);
+    const hasCrit=res.some(r=>r.critical);
+    return '<tr '+(hasCrit?'class="crit-row"':'')+'>'+
+      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
+      '<td style="font-size:11px;color:#666">'+res.length+' result'+(res.length!==1?'s':'')+'</td>'+
+      '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
+      '<td style="display:flex;gap:5px">'+
+      '<button class="btn btn-sm" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Review</button>'+
+      '<button class="btn btn-sm btn-success" onclick="verifyOrder(\''+o.id+'\')"><i class="ti ti-check"></i>Verify</button></td></tr>';
+  }).join(''):'<tr><td colspan="6"><div class="empty">No results awaiting verification</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Results</th><th>Critical?</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
-function renderAIMsgs(){return S.aiMessages.map(m=>"<div class=\"ai-msg-wrap\"><div class=\"ai-from\">"+(m.role==="assistant"?"AI Interpreter":"You")+"</div><div class=\"ai-bubble "+m.role+"\" style=\"white-space:pre-wrap\">"+m.content+"</div></div>").join("");}
-function updateAI(){const el=document.getElementById("ai-msgs");if(el){el.innerHTML=renderAIMsgs();scrollAI();}}
-function scrollAI(){const el=document.getElementById("ai-msgs");if(el)setTimeout(()=>{el.scrollTop=el.scrollHeight;},50);}
-function askAI(q){S.aiMessages.push({role:"user",content:q});updateAI();callAI();}
-async function sendAI(){const inp=document.getElementById("ai-input");if(!inp||S.aiLoading)return;const text=inp.value.trim();if(!text)return;inp.value="";askAI(text);}
-async function callAI(){
-S.aiLoading=true;
-const btn=document.getElementById("ai-send-btn");if(btn)btn.innerHTML="<span class=\"spinner\"></span>";
-const msgs=document.getElementById("ai-msgs");
-if(msgs){const l=document.createElement("div");l.className="ai-msg-wrap";l.id="ai-loading";l.innerHTML="<div class=\"ai-from\">AI Interpreter</div><div class=\"ai-bubble assistant\"><span class=\"spinner\"></span> Thinking...</div>";msgs.appendChild(l);scrollAI();}
-try{
-const resp=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:"You are an educational AI assistant for the Medical Laboratory Assistant (MLA) program at Red Deer Polytechnic in Alberta, Canada. Help students understand lab results, reference ranges, flags, specimen handling, and clinical significance. Use Canadian spelling. Always note when physician consultation is required. This is a learning environment only. When interpreting results explain: what the test measures, what the abnormality suggests, possible causes, and the MLA role. Be concise and clear.",messages:S.aiMessages.map(m=>({role:m.role,content:m.content}))})});
-const data=await resp.json();
-const reply=data.content&&data.content[0]?data.content[0].text:"No response.";
-const l=document.getElementById("ai-loading");if(l)l.remove();
-S.aiMessages.push({role:"assistant",content:reply});updateAI();
-}catch(e){
-const l=document.getElementById("ai-loading");if(l)l.remove();
-S.aiMessages.push({role:"assistant",content:"Error connecting to AI. Please try again."});updateAI();
+
+function reviewResults(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===oid);
+  const sex=pt?pt.sex:'M';
+  const rows=res.map(r=>{
+    const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,sex);
+    const rs=refSex(sex); let lo=ref?ref.lo:null, hi=ref?ref.hi:null;
+    if(rs==='F'){if(ref&&ref.femLo!=null)lo=ref.femLo;if(ref&&ref.femHi!=null)hi=ref.femHi;}
+    return '<tr '+(r.critical?'class="crit-row"':'')+'>'+
+      '<td>'+(ref?ref.name:r.testKey)+'</td>'+
+      '<td><span class="'+fl.cls+'">'+r.value+'</span></td>'+
+      '<td style="color:#666">'+(ref&&!ref.qualitative?ref.unit:'')+'</td>'+
+      '<td><span class="'+fl.cls+'">'+(fl.flag||'--')+'</span></td>'+
+      '<td style="font-size:11px;color:#666">'+(ref&&!ref.qualitative?lo+'--'+hi:'--')+'</td></tr>';
+  }).join('');
+  openModal('Review -- '+o.accession,
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666">'+
+    '<strong>'+ptName(pt)+'</strong><span>'+sexLabel(sex)+', Age '+(pt?age(pt.dob):'?')+'</span><span>'+o.panel+'</span></div>'+
+    '<table><thead><tr><th>Analyte</th><th>Result</th><th>Unit</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>',
+    [{label:'Close',cls:'btn',fn:closeModal},
+     {label:'Verify and Release',cls:'btn btn-success',fn:()=>{verifyOrder(oid);closeModal();}}]);
 }
-S.aiLoading=false;const btn2=document.getElementById("ai-send-btn");if(btn2)btn2.innerHTML="<i class=\"ti ti-send\"></i>";
+function verifyOrder(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  if(o){o.status='verified';o.verifiedAt=nowTime();}
+  closeModal(); nav('reports');
 }
-function sendToAI(oid){
-const o=S.orders.find(x=>x.id===oid);const pt=S.patients.find(p=>p.id===o.patientId);
-const res=S.results.filter(r=>r.orderId===oid);
-let summary="Patient: "+ptName(pt)+", "+(pt?sexLabel(pt.sex)+", Age "+age(pt.dob):"")+"
-Indication: "+(o.indication||"Not specified")+"
-Panel: "+o.panel+"
-Collector ID: "+(o.collectorId||"--")+" | Collection: "+(o.collectionDate||"?")+" "+(o.collectionTime||"")+"
-Results:
-";
-res.forEach(r=>{const ref=REF[r.testKey];const fl=getFlag(r.testKey,r.value,pt?pt.sex:"M");summary+="  "+(ref?ref.name:r.testKey)+": "+r.value+" "+(ref?ref.unit:"")+" "+(fl.flag?"["+fl.flag+"]":"")+"
-";});
-S._aiContext=summary;nav("ai");
+
+function renderReports() {
+  document.getElementById('topbar-right').innerHTML='';
+  const verified=S.orders.filter(o=>o.status==='verified');
+  const rows=verified.length?verified.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
+      '<td style="font-family:monospace;font-size:11px">'+(o.collectorId||'--')+'</td>'+
+      '<td style="font-size:11px;color:#666">'+(o.verifiedAt||'--')+'</td>'+
+      '<td><button class="btn btn-sm btn-primary" onclick="showReport(\''+o.id+'\')"><i class="ti ti-file-analytics"></i>View</button> '+
+      '<button class="btn btn-sm" onclick="sendToAI(\''+o.id+'\')"><i class="ti ti-robot"></i>Interpret</button></td></tr>';
+  }).join(''):'<tr><td colspan="6"><div class="empty">No verified reports yet</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Collector ID</th><th>Verified</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+
+function showReport(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===oid);
+  const sex=pt?pt.sex:'M';
+  const rows=res.map(r=>{
+    const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,sex);
+    const rs=refSex(sex); let lo=ref?ref.lo:null, hi=ref?ref.hi:null;
+    if(rs==='F'){if(ref&&ref.femLo!=null)lo=ref.femLo;if(ref&&ref.femHi!=null)hi=ref.femHi;}
+    const refStr=ref?(ref.qualitative?'See options':lo+'--'+hi+' '+ref.unit):'';
+    const pedsNote=pt&&age(pt.dob)<18&&ref&&ref.peds?' | Peds: '+ref.peds:'';
+    return '<tr '+(r.critical?'class="crit-row"':'')+'>'+
+      '<td>'+(ref?ref.name:r.testKey)+'</td>'+
+      '<td style="font-weight:500"><span class="'+fl.cls+'">'+r.value+(ref&&!ref.qualitative?' '+ref.unit:'')+'</span></td>'+
+      '<td style="color:#666;font-size:11px">'+(ref&&!ref.qualitative?ref.unit:'')+'</td>'+
+      '<td><span class="'+fl.cls+'">'+(fl.flag||'')+'</span>'+(r.critical?'<span class="badge badge-danger" style="margin-left:4px">CRITICAL</span>':'')+'</td>'+
+      '<td style="font-size:10px;color:#666">'+refStr+pedsNote+'</td></tr>';
+  }).join('');
+  openModal('Lab Report -- '+o.accession,
+    '<div style="font-size:11px;background:#f9f9f7;border-radius:8px;padding:14px;margin-bottom:14px">'+
+    '<div style="font-size:13px;font-weight:500;margin-bottom:8px">RED DEER POLYTECHNIC -- EDUCATIONAL LABORATORY</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'+
+    '<div>Patient: <strong>'+ptName(pt)+'</strong></div><div>Accession #: <strong>'+o.accession+'</strong></div>'+
+    '<div>DOB: '+(pt?pt.dob:'?')+' | Sex: '+sexLabel(sex)+' | Age: '+(pt?age(pt.dob):'?')+'</div><div>Order date: '+o.date+'</div>'+
+    '<div>Health #: '+(pt?pt.healthNum||'--':'?')+'</div><div>Verified: '+(o.verifiedAt||'--')+'</div>'+
+    '<div>Physician: '+(pt?pt.physician||'--':'?')+'</div><div>Ward: '+(pt?pt.ward||'--':'?')+'</div>'+
+    '<div>Collector ID: '+(o.collectorId||'--')+(o.collectorName?' ('+o.collectorName+')':'')+'</div>'+
+    '<div>Collection: '+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</div>'+
+    '<div>Indication: '+(o.indication||'--')+'</div><div>Priority: '+o.priority+'</div></div></div>'+
+    '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="margin-top:12px;font-size:10px;color:#666">FOR EDUCATIONAL USE ONLY -- NOT FOR CLINICAL DECISIONS</div>',
+    [{label:'Close',cls:'btn',fn:closeModal},
+     {label:'Interpret with AI',cls:'btn btn-primary',fn:()=>{closeModal();sendToAI(oid);}}]);
+}
+
+function renderSection(dept) {
+  const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis / Body Fluids',T:'Transfusion Medicine'};
+  document.getElementById('topbar-right').innerHTML='';
+  const orders=S.orders.filter(o=>o.dept===dept);
+  const rows=orders.length?orders.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    const action=
+      o.status==='ordered'?'<button class="btn btn-sm btn-primary" onclick="accessionOrder(\''+o.id+'\')"><i class="ti ti-barcode"></i>Accession</button>':
+      o.status==='accessioned'?'<button class="btn btn-sm btn-primary" onclick="receiveSpecimen(\''+o.id+'\')"><i class="ti ti-inbox"></i>Receive</button>':
+      o.status==='received'?'<button class="btn btn-sm btn-primary" onclick="enterResults(\''+o.id+'\')"><i class="ti ti-edit"></i>Results</button>':
+      o.status==='resulted'?'<button class="btn btn-sm btn-success" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Verify</button>':
+      o.status==='verified'?'<button class="btn btn-sm" onclick="showReport(\''+o.id+'\')"><i class="ti ti-file-analytics"></i>Report</button>':
+      '<span class="badge badge-danger">Rejected</span>';
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:10px">'+(o.accession||'--')+'</td>'+
+      '<td>'+ptName(pt)+'</td><td>'+o.panel+'</td>'+
+      '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
+      '<td><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></td>'+
+      '<td>'+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="6"><div class="empty">No orders for '+names[dept]+'</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="grid4" style="margin-bottom:14px">'+
+    '<div class="stat"><div class="stat-label">Total</div><div class="stat-value">'+orders.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Pending</div><div class="stat-value">'+orders.filter(o=>['ordered','accessioned','received'].includes(o.status)).length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Resulted</div><div class="stat-value">'+orders.filter(o=>o.status==='resulted').length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Verified</div><div class="stat-value">'+orders.filter(o=>o.status==='verified').length+'</div></div></div>'+
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Priority</th><th>Status</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+const CHECKLIST_ITEMS = {
+  'Pre-Collection': [
+    'Verified patient identity using two identifiers (name + DOB / health card)',
+    'Confirmed requisition matches patient wristband / chart',
+    'Checked for patient preparation requirements (fasting, timed collection, etc.)',
+    'Reviewed contraindications (allergy, anticoagulation, AV fistula, mastectomy side)',
+    'Explained procedure to patient and obtained consent',
+    'Assembled correct supplies and tubes for ordered tests',
+    'Verified tube expiry dates',
+    'Performed hand hygiene and applied appropriate PPE'
+  ],
+  'Site Selection and Preparation': [
+    'Selected appropriate venipuncture site',
+    'Avoided contraindicated sites (hematoma, oedema, IV line side, scarring)',
+    'Applied tourniquet correctly (no more than 1 minute)',
+    'Identified and palpated vein before cleaning',
+    'Cleaned site with 70% isopropyl alcohol and allowed to dry fully',
+    'Did not re-palpate site after cleaning without re-cleaning'
+  ],
+  'Collection': [
+    'Anchored vein correctly before needle insertion',
+    'Inserted needle bevel-up at correct angle (15-30 degrees)',
+    'Used correct order of draw for multiple tubes',
+    'Filled tubes to appropriate volume (respected fill lines)',
+    'Mixed anticoagulated tubes by gentle inversion (correct number of inversions per tube)',
+    'Released tourniquet before or upon needle withdrawal',
+    'Applied pressure to site immediately after needle withdrawal',
+    'Activated needle safety device before disposal',
+    'Disposed of needle directly into sharps container without recapping'
+  ],
+  'Post-Collection': [
+    'Labelled tubes at bedside immediately after collection',
+    'Confirmed labels match requisition (patient name, ID, date, time, collector ID)',
+    'Documented collection time and collector ID on requisition',
+    'Checked collection site for hematoma or continued bleeding',
+    'Applied bandage to site and confirmed patient comfortable',
+    'Removed gloves and performed hand hygiene',
+    'Transported specimen appropriately (temperature, time requirements)'
+  ],
+  'Specimen Receipt and Rejection': [
+    'Verified accession number matches requisition',
+    'Confirmed specimen label is legible and complete',
+    'Assessed specimen for haemolysis, lipaemia, icteria',
+    'Verified correct tube type for tests ordered',
+    'Confirmed adequate specimen volume (not QNS)',
+    'Checked collection-to-receipt time against stability limits',
+    'Documented rejection with reason and notified appropriate personnel if rejecting'
+  ],
+  'Professionalism and Safety': [
+    'Maintained patient confidentiality throughout',
+    'Demonstrated respectful, patient-centred communication',
+    'Maintained a clean and organized workspace',
+    'Responded appropriately to patient adverse reaction (vaso-vagal, etc.)',
+    'Completed documentation accurately and legibly'
+  ]
+};
+
+let checklistState={}, checklistStudent='', checklistDate=today(), checklistEval='';
+
+function renderChecklist() {
+  document.getElementById('topbar-right').innerHTML=
+    '<button class="btn" onclick="window.print()"><i class="ti ti-printer"></i>Print</button> '+
+    '<button class="btn btn-danger btn-sm" onclick="resetChecklist()"><i class="ti ti-refresh"></i>Reset</button>';
+  const totalItems=Object.values(CHECKLIST_ITEMS).flat().length;
+  const checkedItems=Object.values(checklistState).filter(v=>v==='met').length;
+  const sections=Object.entries(CHECKLIST_ITEMS).map(([section,items])=>{
+    const itemRows=items.map((item,i)=>{
+      const key=section+'::'+i;
+      const val=checklistState[key];
+      return '<tr>'+
+        '<td style="text-align:center"><input type="checkbox" '+(val==='met'?'checked':'')+' onchange="toggleCheck(\''+key+'\',this.checked)"></td>'+
+        '<td style="font-size:12px">'+item+'</td>'+
+        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="met" '+(val==='met'?'checked':'')+' onchange="setCheck(\''+key+'\',\'met\')"></td>'+
+        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="notmet" '+(val==='notmet'?'checked':'')+' onchange="setCheck(\''+key+'\',\'notmet\')"></td>'+
+        '<td><input style="width:100%;padding:3px 6px;border:0.5px solid #ccc;border-radius:4px;font-size:11px;background:#fff;color:#111;font-family:inherit" placeholder=""></td></tr>';
+    }).join('');
+    return '<div class="card"><div class="card-title"><i class="ti ti-checkbox"></i>'+section+'</div>'+
+      '<table><thead><tr><th style="width:36px"></th><th>Competency Item</th>'+
+      '<th style="width:70px;text-align:center">Met</th><th style="width:70px;text-align:center">Not Met</th><th>Comments</th>'+
+      '</tr></thead><tbody>'+itemRows+'</tbody></table></div>';
+  }).join('');
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="margin-bottom:14px">'+
+    '<div class="card-title"><i class="ti ti-clipboard-text"></i>Specimen Collection Competency Checklist -- MLA Program, Red Deer Polytechnic</div>'+
+    '<div class="grid3">'+
+    '<div class="field"><label>Student Name</label><input id="cl-student" value="'+checklistStudent+'" oninput="checklistStudent=this.value" placeholder="Full name"></div>'+
+    '<div class="field"><label>Assessment Date</label><input id="cl-date" type="date" value="'+checklistDate+'" oninput="checklistDate=this.value"></div>'+
+    '<div class="field"><label>Evaluator</label><input id="cl-eval" value="'+checklistEval+'" oninput="checklistEval=this.value" placeholder="Name or initials"></div></div>'+
+    '<div style="display:flex;gap:10px;margin-top:4px">'+
+    '<div class="stat" style="flex:1"><div class="stat-label">Items Completed</div><div class="stat-value">'+checkedItems+' / '+totalItems+'</div></div>'+
+    '<div class="stat" style="flex:1"><div class="stat-label">Score</div><div class="stat-value">'+(totalItems>0?Math.round(checkedItems/totalItems*100):0)+'%</div></div>'+
+    '<div class="stat" style="flex:1"><div class="stat-label">Status</div><div class="stat-value" style="font-size:14px;color:'+(checkedItems===totalItems?'#3b6d11':'#854f0b')+'">'+
+    (checkedItems===totalItems?'Complete':'In progress')+'</div></div></div></div>'+
+    sections+
+    '<div class="card"><div class="card-title"><i class="ti ti-writing"></i>Overall Comments</div>'+
+    '<div class="field"><label>Evaluator comments</label><textarea style="min-height:80px" placeholder="Strengths, areas for improvement..."></textarea></div>'+
+    '<div class="grid2" style="margin-top:14px;padding-top:14px;border-top:0.5px solid #e5e5e5">'+
+    '<div><div style="font-size:11px;color:#666;margin-bottom:20px">Student Signature</div>'+
+    '<div style="border-bottom:0.5px solid #111;height:24px;margin-bottom:4px"></div>'+
+    '<div style="font-size:10px;color:#666">'+(checklistStudent||'Student name')+'</div></div>'+
+    '<div><div style="font-size:11px;color:#666;margin-bottom:20px">Evaluator Signature</div>'+
+    '<div style="border-bottom:0.5px solid #111;height:24px;margin-bottom:4px"></div>'+
+    '<div style="font-size:10px;color:#666">'+(checklistEval||'Evaluator name')+'</div></div></div>'+
+    '<div style="font-size:10px;color:#666;margin-top:12px;text-align:center">'+
+    'Red Deer Polytechnic -- MLA Program -- Specimen Collection Competency Checklist | '+checklistDate+'</div></div>';
+}
+function toggleCheck(key,checked) { checklistState[key]=checked?'met':undefined; renderChecklist(); }
+function setCheck(key,val) { checklistState[key]=val; renderChecklist(); }
+function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';renderChecklist();} }
+
+function renderAI() {
+  document.getElementById('topbar-right').innerHTML='';
+  const reportList=S.orders.filter(o=>o.status==='verified').slice(0,5).map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5">'+
+      '<span style="font-size:12px">'+ptName(pt)+' -- '+o.panel+'</span>'+
+      '<button class="btn btn-sm btn-primary" onclick="sendToAI(\''+o.id+'\')"><i class="ti ti-robot"></i>Interpret</button></div>';
+  }).join('')||'<div style="font-size:12px;color:#666">No verified reports yet</div>';
+  const suggestions=['What does a high MCV indicate?','Explain PT vs aPTT','What causes thrombocytopenia?',
+    'Why use a citrate tube for coag?','What is a positive antibody screen?',
+    'What are critical value callback procedures?','Explain the order of draw',
+    'What causes haemolysis in a specimen?']
+    .map(q=>'<div class="chip" style="margin:3px;display:inline-flex" onclick="askAI(\''+q+'\')">'+q+'</div>').join('');
+  document.getElementById('content').innerHTML=
+    '<div class="grid2" style="gap:14px"><div>'+
+    '<div class="card ai-wrap" style="padding:0">'+
+    '<div class="ai-messages" id="ai-msgs">'+renderAIMsgs()+'</div>'+
+    '<div class="ai-input-row"><input id="ai-input" placeholder="Ask about a result, flag, tube, or test..." onkeydown="if(event.key===\'Enter\')sendAI()">'+
+    '<button class="btn btn-primary btn-sm" onclick="sendAI()" id="ai-send-btn"><i class="ti ti-send"></i></button></div></div></div>'+
+    '<div><div class="card"><div class="card-title"><i class="ti ti-bulb"></i>Suggested questions</div>'+suggestions+'</div>'+
+    '<div class="card"><div class="card-title"><i class="ti ti-file-text"></i>Interpret a report</div>'+reportList+'</div></div></div>';
+  if(S._aiContext){const ctx=S._aiContext;S._aiContext=null;S.aiMessages.push({role:'user',content:'Please interpret these lab results:\n\n'+ctx});updateAI();callAI();}
+  else scrollAI();
+}
+function renderAIMsgs() {
+  return S.aiMessages.map(m=>
+    '<div class="ai-msg-wrap"><div class="ai-from">'+(m.role==='assistant'?'AI Interpreter':'You')+'</div>'+
+    '<div class="ai-bubble '+m.role+'" style="white-space:pre-wrap">'+m.content+'</div></div>'
+  ).join('');
+}
+function updateAI() { const el=document.getElementById('ai-msgs'); if(el){el.innerHTML=renderAIMsgs();scrollAI();} }
+function scrollAI() { const el=document.getElementById('ai-msgs'); if(el) setTimeout(()=>{el.scrollTop=el.scrollHeight;},50); }
+function askAI(q) { S.aiMessages.push({role:'user',content:q}); updateAI(); callAI(); }
+async function sendAI() {
+  const inp=document.getElementById('ai-input');
+  if(!inp||S.aiLoading) return;
+  const text=inp.value.trim(); if(!text) return;
+  inp.value=''; askAI(text);
+}
+async function callAI() {
+  S.aiLoading=true;
+  const btn=document.getElementById('ai-send-btn'); if(btn) btn.innerHTML='<span class="spinner"></span>';
+  const msgs=document.getElementById('ai-msgs');
+  if(msgs){
+    const l=document.createElement('div'); l.className='ai-msg-wrap'; l.id='ai-loading';
+    l.innerHTML='<div class="ai-from">AI Interpreter</div><div class="ai-bubble assistant"><span class="spinner"></span> Thinking...</div>';
+    msgs.appendChild(l); scrollAI();
+  }
+  try {
+    const resp=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,
+        system:'You are an educational AI assistant for the Medical Laboratory Assistant (MLA) program at Red Deer Polytechnic in Alberta, Canada. Help students understand lab results, reference ranges, flags, specimen handling, and clinical significance. Use Canadian spelling. Always note when physician consultation is required. This is a learning environment only. When interpreting results explain: what the test measures, what the abnormality suggests, possible causes, and the MLA role. Be concise and clear.',
+        messages:S.aiMessages.map(m=>({role:m.role,content:m.content}))})});
+    const data=await resp.json();
+    const reply=data.content&&data.content[0]?data.content[0].text:'No response.';
+    const l=document.getElementById('ai-loading'); if(l) l.remove();
+    S.aiMessages.push({role:'assistant',content:reply}); updateAI();
+  } catch(e) {
+    const l=document.getElementById('ai-loading'); if(l) l.remove();
+    S.aiMessages.push({role:'assistant',content:'Error connecting to AI. Please try again.'}); updateAI();
+  }
+  S.aiLoading=false;
+  const btn2=document.getElementById('ai-send-btn'); if(btn2) btn2.innerHTML='<i class="ti ti-send"></i>';
+}
+function sendToAI(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===oid);
+  let summary='Patient: '+ptName(pt)+', '+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+
+    '\nIndication: '+(o.indication||'Not specified')+
+    '\nPanel: '+o.panel+
+    '\nCollector ID: '+(o.collectorId||'--')+' | Collection: '+(o.collectionDate||'?')+' '+(o.collectionTime||'')+
+    '\nResults:\n';
+  res.forEach(r=>{
+    const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,pt?pt.sex:'M');
+    summary+='  '+(ref?ref.name:r.testKey)+': '+r.value+' '+(ref?ref.unit:'')+' '+(fl.flag?'['+fl.flag+']':'')+'\n';
+  });
+  S._aiContext=summary; nav('ai');
+}
+
 S.patients=[...MOCK_PATIENTS];
 render();
+
 </script>
 </body>
 </html>
