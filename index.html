@@ -70,15 +70,6 @@ tbody tr:hover td{background:#f9f9f7}
 .modal-header{padding:14px 18px;border-bottom:0.5px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:500;position:sticky;top:0;background:#fff;z-index:1}
 .modal-body{padding:18px;flex:1}
 .modal-footer{padding:12px 18px;border-top:0.5px solid #e5e5e5;display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:#fff}
-.ai-wrap{border:0.5px solid #e5e5e5;border-radius:10px;overflow:hidden;background:#fff}
-.ai-messages{padding:14px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
-.ai-msg-wrap{display:flex;flex-direction:column;gap:2px}
-.ai-from{font-size:10px;color:#666}
-.ai-bubble{border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.6}
-.ai-bubble.assistant{background:#f5f5f3}
-.ai-bubble.user{background:#e6f1fb;color:#185fa5;margin-left:30px}
-.ai-input-row{display:flex;gap:8px;padding:10px 14px;border-top:0.5px solid #e5e5e5}
-.ai-input-row input{flex:1;padding:6px 10px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;color:#111}
 .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;font-size:11px;border:0.5px solid #e5e5e5;background:#f9f9f7;cursor:pointer}
 .chip.selected{background:#e6f1fb;color:#185fa5;border-color:#185fa5}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #ccc;border-top-color:#185fa5;border-radius:50%;animation:spin .7s linear infinite}
@@ -117,14 +108,13 @@ tbody tr:hover td{background:#f9f9f7}
       <div class="nav-item" onclick="nav('heme')" id="nav-heme"><i class="ti ti-drop"></i>Hematology</div>
       <div class="nav-item" onclick="nav('coag')" id="nav-coag"><i class="ti ti-activity"></i>Coagulation</div>
       <div class="nav-item" onclick="nav('chem')" id="nav-chem"><i class="ti ti-flask"></i>Chemistry</div>
-      <div class="nav-item" onclick="nav('ua')" id="nav-ua"><i class="ti ti-test-pipe"></i>UA / Body Fluids</div>
+      <div class="nav-item" onclick="nav('ua')" id="nav-ua"><i class="ti ti-test-pipe"></i>Urinalysis</div>
       <div class="nav-item" onclick="nav('transfusion')" id="nav-transfusion"><i class="ti ti-heart-rate-monitor"></i>Transfusion</div>
     </div>
     <div class="nav-group">
       <div class="nav-label">Tools</div>
       <div class="nav-item" onclick="nav('rejected')" id="nav-rejected"><i class="ti ti-ban"></i>Rejected Specimens</div>
       <div class="nav-item" onclick="nav('checklist')" id="nav-checklist"><i class="ti ti-checkbox"></i>Competency Checklist</div>
-      <div class="nav-item" onclick="nav('ai')" id="nav-ai"><i class="ti ti-robot"></i>AI Interpreter</div>
     </div>
   </div>
   <div class="main">
@@ -140,16 +130,11 @@ tbody tr:hover td{background:#f9f9f7}
 </div>
 <script>
 
-const API_URL = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
-
 const S = {
   patients: [], orders: [], results: [],
   currentPage: 'dashboard',
   testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
-  aiMessages: [{role:'assistant',content:'Hello! I am your AI lab interpreter. Ask about results, flags, or click Interpret from any verified report.'}],
-  aiLoading: false,
-  _quickOrderPt: null,
-  _aiContext: null
+  _quickOrderPt: null
 };
 
 const SEX_OPTS = [
@@ -201,19 +186,49 @@ const REF = {
   CK:{name:'CK',unit:'U/L',lo:40,hi:320,critLo:null,critHi:null,femLo:25,femHi:200,peds:'Similar to adult'},
   Trop:{name:'Troponin I',unit:'ng/L',lo:0,hi:34,critLo:null,critHi:null,peds:'Similar to adult'},
   TSH:{name:'TSH',unit:'mIU/L',lo:0.4,hi:4.0,critLo:null,critHi:null,peds:'Neonates 1-39 first week'},
-  UA_SG:{name:'Specific Gravity',unit:'',lo:1.005,hi:1.030,peds:'Similar'},
-  UA_pH:{name:'pH',unit:'',lo:4.5,hi:8.0,peds:'Similar'},
-  UA_Prot:{name:'Protein',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+','4+'],peds:'Neg expected'},
-  UA_Gluc:{name:'Glucose',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
-  UA_Ket:{name:'Ketones',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
-  UA_Blood:{name:'Blood',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
-  UA_Leuk:{name:'Leukocytes',unit:'',qualitative:true,options:['Negative','Trace','1+','2+','3+'],peds:'Neg expected'},
-  UA_Nit:{name:'Nitrites',unit:'',qualitative:true,options:['Negative','Positive'],peds:'Neg expected'},
-  UA_Bili:{name:'Bilirubin',unit:'',qualitative:true,options:['Negative','1+','2+','3+'],peds:'Neg expected'},
-  UA_Urobili:{name:'Urobilinogen',unit:'EU/dL',lo:0.1,hi:1.0,peds:'Similar'},
-  UA_WBC:{name:'WBC micro',unit:'/hpf',lo:0,hi:5,peds:'Similar'},
-  UA_RBC:{name:'RBC micro',unit:'/hpf',lo:0,hi:3,peds:'Similar'},
-  UA_Casts:{name:'Casts',unit:'/lpf',qualitative:true,options:['None','Hyaline','Granular','RBC casts','WBC casts','Waxy','Fatty'],peds:'Neg expected'},
+  UA_Color:{name:'Color',unit:'',qualitative:true,reflex:true,
+    options:['Colorless','Yellow','Amber','Orange*','Red*','Brown*','Black*','Other*'],peds:'Similar'},
+  UA_Clarity:{name:'Clarity',unit:'',qualitative:true,reflex:true,
+    options:['Clear','Slightly cloudy*','Cloudy*','Turbid*'],peds:'Similar'},
+  UA_SG:{name:'Specific Gravity',unit:'',qualitative:true,reflex:false,
+    options:['\u2264 1.005','1.010','1.015','1.020','1.025','\u2265 1.030'],peds:'Similar'},
+  UA_pH2:{name:'pH',unit:'',qualitative:true,reflex:false,
+    options:['\u2264 5.0','6.0','6.5','7.0','7.5','8.0','\u2265 8.5'],peds:'Similar'},
+  UA_Prot2:{name:'Protein',unit:'',qualitative:true,reflex:true,
+    options:['Negative','Trace','30 mg/dL*','100 mg/dL*','300 mg/dL*','\u2265 2000 mg/dL*'],peds:'Neg expected'},
+  UA_Gluc2:{name:'Glucose',unit:'',qualitative:true,reflex:false,
+    options:['Negative','100 mg/dL','250 mg/dL','500 mg/dL','1000 mg/dL','\u2265 2000 mg/dL'],peds:'Neg expected'},
+  UA_Ket2:{name:'Ketones',unit:'',qualitative:true,reflex:false,
+    options:['Negative','5 mg/dL','15 mg/dL','40 mg/dL','\u2265 80 mg/dL'],peds:'Neg expected'},
+  UA_Blood2:{name:'Blood',unit:'',qualitative:true,reflex:true,
+    options:['Negative','Trace*','Small*','Moderate*','Large*'],peds:'Neg expected'},
+  UA_Nit2:{name:'Nitrite',unit:'',qualitative:true,reflex:true,
+    options:['Negative','Positive*'],peds:'Neg expected'},
+  UA_Leuk2:{name:'Leukocytes',unit:'',qualitative:true,reflex:true,
+    options:['Negative','Trace*','Small*','Moderate*','Large*'],peds:'Neg expected'},
+  UA_ReflexNote:{name:'Reflex / Notes',unit:'',freetext:true,reflex:false,peds:''},
+  UAM_WBC:{name:'WBC',unit:'/hpf',qualitative:true,reflex:false,
+    options:['0-5','6-10','11-20','21-50','>50'],peds:'Similar'},
+  UAM_RBC:{name:'RBC',unit:'/hpf',qualitative:true,reflex:false,
+    options:['0-2','3-5','6-10','11-20','>20'],peds:'Similar'},
+  UAM_Epi:{name:'Epithelial Cells',unit:'/hpf',qualitative:true,reflex:false,
+    options:['0-5','6-10','>10'],peds:'Similar'},
+  UAM_WBCClumps:{name:'WBC Clumps',unit:'',qualitative:true,reflex:false,
+    options:['Not present','Present'],peds:''},
+  UAM_Casts:{name:'Casts (total)',unit:'/lpf',qualitative:true,reflex:false,
+    options:['0-2','3-5','6-10','11-20','>20'],peds:'Similar'},
+  UAM_CrystalsAcid:{name:'Crystals - Acid pH',unit:'/hpf',qualitative:true,reflex:false,
+    options:['None seen','0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
+  UAM_CrystalsAlkaline:{name:'Crystals - Alkaline pH',unit:'/hpf',qualitative:true,reflex:false,
+    options:['None seen','0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
+  UAM_Bacteria:{name:'Bacteria',unit:'/hpf',qualitative:true,reflex:false,
+    options:['0-20','>20'],peds:'Similar'},
+  UAM_Yeast:{name:'Yeast',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_Sperm:{name:'Sperm',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_Trich:{name:'Trichomonas vaginalis',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_Entero:{name:'Enterobius vermicularis',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_FatGlobules:{name:'Fat Globules',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_OvalFatBodies:{name:'Oval Fat Bodies',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
   ABO:{name:'ABO Group',unit:'',qualitative:true,options:['A','B','AB','O'],peds:''},
   Rh:{name:'Rh Type',unit:'',qualitative:true,options:['Positive','Negative'],peds:''},
   Ab_Sc:{name:'Antibody Screen',unit:'',qualitative:true,options:['Negative','Positive'],peds:''},
@@ -234,8 +249,8 @@ const PANELS = {
   Electrolytes:{name:'Electrolytes',dept:'C',tests:['Na','K','Cl','CO2'],tube:'SST or Li-Hep'},
   Cardiac:{name:'Cardiac Panel',dept:'C',tests:['Trop','CK'],tube:'SST (gold)'},
   Thyroid:{name:'Thyroid TSH',dept:'C',tests:['TSH'],tube:'SST (gold)'},
-  UA_Dip:{name:'UA Dipstick',dept:'U',tests:['UA_SG','UA_pH','UA_Prot','UA_Gluc','UA_Ket','UA_Blood','UA_Leuk','UA_Nit','UA_Bili','UA_Urobili'],tube:'Urine cup'},
-  UA_Full:{name:'UA Full',dept:'U',tests:['UA_SG','UA_pH','UA_Prot','UA_Gluc','UA_Ket','UA_Blood','UA_Leuk','UA_Nit','UA_Bili','UA_Urobili','UA_WBC','UA_RBC','UA_Casts'],tube:'Urine cup'},
+  UA:{name:'UA',dept:'U',tests:['UA_Color','UA_Clarity','UA_SG','UA_pH2','UA_Prot2','UA_Gluc2','UA_Ket2','UA_Blood2','UA_Nit2','UA_Leuk2','UA_ReflexNote'],tube:'Urine cup (60 mL sterile)'},
+  UAMicro:{name:'UA-MICRO',dept:'U',tests:['UAM_WBC','UAM_RBC','UAM_Epi','UAM_WBCClumps','UAM_Casts','UAM_CrystalsAcid','UAM_CrystalsAlkaline','UAM_Bacteria','UAM_Yeast','UAM_Sperm','UAM_Trich','UAM_Entero','UAM_FatGlobules','UAM_OvalFatBodies'],tube:'Urine cup (same specimen, centrifuged)'},
   TypeScreen:{name:'Type and Screen',dept:'T',tests:['ABO','Rh','Ab_Sc'],tube:'EDTA (pink transfusion)'},
   TypeXM:{name:'Type and Crossmatch',dept:'T',tests:['ABO','Rh','Ab_Sc','XM'],tube:'EDTA (pink transfusion)'},
   DAT_Test:{name:'Direct Antiglobulin Test',dept:'T',tests:['DAT'],tube:'EDTA (pink transfusion)'}
@@ -318,7 +333,7 @@ function render() {
     dashboard:renderDashboard, patients:renderPatients, orders:renderOrders,
     accession:renderAccession, receive:renderReceive, results:renderResults,
     verify:renderVerify, reports:renderReports, rejected:renderRejected,
-    checklist:renderChecklist, ai:renderAI,
+    checklist:renderChecklist,
     heme:()=>renderSection('H'), coag:()=>renderSection('O'),
     chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T')
   };
@@ -326,13 +341,13 @@ function render() {
     dashboard:'Dashboard', patients:'Patient Registry', orders:'Order Entry',
     accession:'Specimen Accessioning', receive:'Receive Specimen', results:'Result Entry',
     verify:'Result Verification', reports:'Lab Reports', rejected:'Rejected Specimens',
-    checklist:'Competency Checklist', ai:'AI Result Interpreter',
-    heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'UA / Body Fluids', transfusion:'Transfusion Medicine'
+    checklist:'Competency Checklist',
+    heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'Urinalysis', transfusion:'Transfusion Medicine'
   };
   const icons = {
     dashboard:'ti-layout-dashboard', patients:'ti-user', orders:'ti-clipboard-list',
     accession:'ti-barcode', receive:'ti-inbox', results:'ti-microscope', verify:'ti-circle-check',
-    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', ai:'ti-robot',
+    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox',
     heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor'
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
@@ -478,7 +493,7 @@ function renderOrders() {
   if(S._quickOrderPt){orderPtId=S._quickOrderPt;S._quickOrderPt=null;}
   document.getElementById('topbar-right').innerHTML='';
   const pt=S.patients.find(p=>p.id===orderPtId);
-  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis / Body Fluids',T:'Transfusion Medicine'};
+  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine'};
   const panelSections=['H','O','C','U','T'].map(dept=>{
     const panels=Object.entries(PANELS).filter(([k,v])=>v.dept===dept);
     return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">'+deptNames[dept]+'</div>'+
@@ -702,9 +717,14 @@ function enterResults(oid) {
     if(rs==='F'){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
     const pedsNote=isPeds&&r.peds?'<span style="color:#854f0b;font-size:10px"> Peds: '+r.peds+'</span>':'';
     const nbNote=nonBinary&&r.femLo!=null?'<span style="font-size:10px;color:#666"> (unisex)</span>':'';
+    if(r.freetext){
+      return '<tr><td style="font-weight:500">'+r.name+'</td>'+
+        '<td colspan="3"><textarea id="res_'+tk+'" style="width:100%;min-height:50px;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit" placeholder="Optional notes">'+(existing[tk]||'')+'</textarea></td></tr>';
+    }
     if(r.qualitative){
       return '<tr><td style="font-weight:500">'+r.name+'</td>'+
-        '<td><select id="res_'+tk+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit">'+
+        '<td><select id="res_'+tk+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit" '+
+        (r.reflex?'onchange="checkReflex()"':'')+'>'+
         '<option value="">--</option>'+r.options.map(op=>'<option '+(existing[tk]===op?'selected':'')+'>'+op+'</option>').join('')+
         '</select></td><td style="font-size:11px;color:#666">'+r.options.join(' / ')+pedsNote+'</td><td id="flag_'+tk+'"></td></tr>';
     }
@@ -720,7 +740,9 @@ function enterResults(oid) {
     '<strong>'+ptName(pt)+'</strong><span>'+sexLabel(sex)+'</span><span>Age '+(pt?age(pt.dob):'?')+'</span><span>'+o.panel+'</span>'+
     (isPeds?'<span class="badge badge-warning">Paediatric</span>':'')+
     (nonBinary?'<span class="badge badge-purple">Unisex ranges</span>':'')+
-    '</div><table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>'+rows+'</tbody></table>',
+    '</div>'+
+    '<div id="reflexBanner"></div>'+
+    '<table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>'+rows+'</tbody></table>',
     [{label:'Cancel',cls:'btn',fn:closeModal},
      {label:'Save Results',cls:'btn btn-primary',fn:()=>{
       S.results=S.results.filter(r=>r.orderId!==oid);
@@ -737,6 +759,21 @@ function enterResults(oid) {
       if(hasCrit) alert('CRITICAL VALUE(S) detected. Notify physician immediately and document callback.');
       nav('verify');
     }}]);
+  checkReflex();
+}
+function checkReflex() {
+  const banner=document.getElementById('reflexBanner');
+  if(!banner) return;
+  const triggered=[];
+  Object.keys(REF).forEach(tk=>{
+    const r=REF[tk]; if(!r||!r.reflex) return;
+    const el=document.getElementById('res_'+tk);
+    if(el&&el.value&&el.value.includes('*')) triggered.push(r.name+': '+el.value.replace('*',''));
+  });
+  banner.innerHTML = triggered.length
+    ? '<div class="warn-box"><i class="ti ti-alert-triangle"></i> <strong>Reflex to microscopic examination suggested</strong> -- '+
+      triggered.join(', ')+'. Consider also ordering UA-MICRO and document in the Reflex / Notes field.</div>'
+    : '';
 }
 function liveFlag(tk,sex) {
   const el=document.getElementById('res_'+tk);
@@ -780,9 +817,9 @@ function reviewResults(oid) {
     return '<tr '+(r.critical?'class="crit-row"':'')+'>'+
       '<td>'+(ref?ref.name:r.testKey)+'</td>'+
       '<td><span class="'+fl.cls+'">'+r.value+'</span></td>'+
-      '<td style="color:#666">'+(ref&&!ref.qualitative?ref.unit:'')+'</td>'+
+      '<td style="color:#666">'+(ref&&!ref.qualitative&&!ref.freetext?ref.unit:'')+'</td>'+
       '<td><span class="'+fl.cls+'">'+(fl.flag||'--')+'</span></td>'+
-      '<td style="font-size:11px;color:#666">'+(ref&&!ref.qualitative?lo+'--'+hi:'--')+'</td></tr>';
+      '<td style="font-size:11px;color:#666">'+(ref&&!ref.qualitative&&!ref.freetext?lo+'--'+hi:'--')+'</td></tr>';
   }).join('');
   openModal('Review -- '+o.accession,
     '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666">'+
@@ -807,8 +844,7 @@ function renderReports() {
       '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
       '<td style="font-family:monospace;font-size:11px">'+(o.collectorId||'--')+'</td>'+
       '<td style="font-size:11px;color:#666">'+(o.verifiedAt||'--')+'</td>'+
-      '<td><button class="btn btn-sm btn-primary" onclick="showReport(\''+o.id+'\')"><i class="ti ti-file-analytics"></i>View</button> '+
-      '<button class="btn btn-sm" onclick="sendToAI(\''+o.id+'\')"><i class="ti ti-robot"></i>Interpret</button></td></tr>';
+      '<td><button class="btn btn-sm btn-primary" onclick="showReport(\''+o.id+'\')"><i class="ti ti-file-analytics"></i>View</button></td></tr>';
   }).join(''):'<tr><td colspan="6"><div class="empty">No verified reports yet</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
@@ -825,12 +861,12 @@ function showReport(oid) {
     const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,sex);
     const rs=refSex(sex); let lo=ref?ref.lo:null, hi=ref?ref.hi:null;
     if(rs==='F'){if(ref&&ref.femLo!=null)lo=ref.femLo;if(ref&&ref.femHi!=null)hi=ref.femHi;}
-    const refStr=ref?(ref.qualitative?'See options':lo+'--'+hi+' '+ref.unit):'';
+    const refStr=ref?(ref.freetext?'Free text':ref.qualitative?'See options':lo+'--'+hi+' '+ref.unit):'';
     const pedsNote=pt&&age(pt.dob)<18&&ref&&ref.peds?' | Peds: '+ref.peds:'';
     return '<tr '+(r.critical?'class="crit-row"':'')+'>'+
       '<td>'+(ref?ref.name:r.testKey)+'</td>'+
-      '<td style="font-weight:500"><span class="'+fl.cls+'">'+r.value+(ref&&!ref.qualitative?' '+ref.unit:'')+'</span></td>'+
-      '<td style="color:#666;font-size:11px">'+(ref&&!ref.qualitative?ref.unit:'')+'</td>'+
+      '<td style="font-weight:500"><span class="'+fl.cls+'">'+r.value+(ref&&!ref.qualitative&&!ref.freetext?' '+ref.unit:'')+'</span></td>'+
+      '<td style="color:#666;font-size:11px">'+(ref&&!ref.qualitative&&!ref.freetext?ref.unit:'')+'</td>'+
       '<td><span class="'+fl.cls+'">'+(fl.flag||'')+'</span>'+(r.critical?'<span class="badge badge-danger" style="margin-left:4px">CRITICAL</span>':'')+'</td>'+
       '<td style="font-size:10px;color:#666">'+refStr+pedsNote+'</td></tr>';
   }).join('');
@@ -848,11 +884,64 @@ function showReport(oid) {
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div style="margin-top:12px;font-size:10px;color:#666">FOR EDUCATIONAL USE ONLY -- NOT FOR CLINICAL DECISIONS</div>',
     [{label:'Close',cls:'btn',fn:closeModal},
-     {label:'Interpret with AI',cls:'btn btn-primary',fn:()=>{closeModal();sendToAI(oid);}}]);
+     ...(o.panelKey==='UA'||o.panelKey==='UAMicro'?[{label:'Download PDF',cls:'btn btn-success',fn:()=>{printableReport(oid);}}]:[])]);
+}
+
+function printableReport(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===oid);
+  const sex=pt?pt.sex:'M';
+  const rows=res.map(r=>{
+    const ref=REF[r.testKey];
+    const displayVal=(r.value||'').toString().replace(/\*/g,'');
+    const flagStar=(r.value||'').toString().includes('*')?'<span class="badge-danger-print">REFLEX</span>':'';
+    return '<tr>'+
+      '<td>'+(ref?ref.name:r.testKey)+'</td>'+
+      '<td><strong>'+displayVal+'</strong></td>'+
+      '<td>'+(ref?ref.unit:'')+'</td>'+
+      '<td>'+flagStar+'</td></tr>';
+  }).join('');
+  const html =
+    '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'+
+    '<title>UA Report -- '+(o.accession||'')+'</title>'+
+    '<style>'+
+    '*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:28px;max-width:800px;margin:0 auto}'+
+    'h1{font-size:16px;margin-bottom:2px}'+
+    '.sub{font-size:11px;color:#555;margin-bottom:18px}'+
+    'table{width:100%;border-collapse:collapse;margin-bottom:6px}'+
+    'th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}'+
+    'th{background:#f0f0ee}'+
+    '.demo-table td{border:1px solid #ccc;font-size:12px}'+
+    '.demo-table th{background:#f0f0ee;width:140px}'+
+    '.section-title{font-size:13px;font-weight:600;margin:18px 0 6px}'+
+    '.footer{margin-top:24px;font-size:10px;color:#666;text-align:center}'+
+    '.badge-danger-print{background:#fcebeb;color:#a32d2d;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}'+
+    '@media print{body{padding:0 16px}}'+
+    '</style></head><body>'+
+    '<h1>Red Deer Polytechnic -- Educational Laboratory</h1>'+
+    '<div class="sub">'+o.panel+' Report -- For educational use only, not for clinical decisions</div>'+
+    '<table class="demo-table">'+
+    '<tr><th>Patient</th><td>'+ptName(pt)+'</td><th>Accession #</th><td>'+(o.accession||'--')+'</td></tr>'+
+    '<tr><th>DOB</th><td>'+(pt?pt.dob:'?')+'</td><th>Sex</th><td>'+sexLabel(sex)+'</td></tr>'+
+    '<tr><th>Age</th><td>'+(pt?age(pt.dob):'?')+'</td><th>Health #</th><td>'+(pt?pt.healthNum||'--':'?')+'</td></tr>'+
+    '<tr><th>Physician</th><td>'+(pt?pt.physician||'--':'?')+'</td><th>Ward</th><td>'+(pt?pt.ward||'--':'?')+'</td></tr>'+
+    '<tr><th>Collector ID</th><td>'+(o.collectorId||'--')+'</td><th>Collection</th><td>'+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</td></tr>'+
+    '<tr><th>Order date</th><td>'+o.date+'</td><th>Verified</th><td>'+(o.verifiedAt||'--')+'</td></tr>'+
+    '</table>'+
+    '<div class="section-title">'+o.panel+' Results</div>'+
+    '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>'+
+    '</body></html>';
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups to download the PDF report.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 function renderSection(dept) {
-  const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis / Body Fluids',T:'Transfusion Medicine'};
+  const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine'};
   document.getElementById('topbar-right').innerHTML='';
   const orders=S.orders.filter(o=>o.dept===dept);
   const rows=orders.length?orders.map(o=>{
@@ -991,86 +1080,6 @@ function renderChecklist() {
 function toggleCheck(key,checked) { checklistState[key]=checked?'met':undefined; renderChecklist(); }
 function setCheck(key,val) { checklistState[key]=val; renderChecklist(); }
 function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';renderChecklist();} }
-
-function renderAI() {
-  document.getElementById('topbar-right').innerHTML='';
-  const reportList=S.orders.filter(o=>o.status==='verified').slice(0,5).map(o=>{
-    const pt=S.patients.find(p=>p.id===o.patientId);
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5">'+
-      '<span style="font-size:12px">'+ptName(pt)+' -- '+o.panel+'</span>'+
-      '<button class="btn btn-sm btn-primary" onclick="sendToAI(\''+o.id+'\')"><i class="ti ti-robot"></i>Interpret</button></div>';
-  }).join('')||'<div style="font-size:12px;color:#666">No verified reports yet</div>';
-  const suggestions=['What does a high MCV indicate?','Explain PT vs aPTT','What causes thrombocytopenia?',
-    'Why use a citrate tube for coag?','What is a positive antibody screen?',
-    'What are critical value callback procedures?','Explain the order of draw',
-    'What causes haemolysis in a specimen?']
-    .map(q=>'<div class="chip" style="margin:3px;display:inline-flex" onclick="askAI(\''+q+'\')">'+q+'</div>').join('');
-  document.getElementById('content').innerHTML=
-    '<div class="grid2" style="gap:14px"><div>'+
-    '<div class="card ai-wrap" style="padding:0">'+
-    '<div class="ai-messages" id="ai-msgs">'+renderAIMsgs()+'</div>'+
-    '<div class="ai-input-row"><input id="ai-input" placeholder="Ask about a result, flag, tube, or test..." onkeydown="if(event.key===\'Enter\')sendAI()">'+
-    '<button class="btn btn-primary btn-sm" onclick="sendAI()" id="ai-send-btn"><i class="ti ti-send"></i></button></div></div></div>'+
-    '<div><div class="card"><div class="card-title"><i class="ti ti-bulb"></i>Suggested questions</div>'+suggestions+'</div>'+
-    '<div class="card"><div class="card-title"><i class="ti ti-file-text"></i>Interpret a report</div>'+reportList+'</div></div></div>';
-  if(S._aiContext){const ctx=S._aiContext;S._aiContext=null;S.aiMessages.push({role:'user',content:'Please interpret these lab results:\n\n'+ctx});updateAI();callAI();}
-  else scrollAI();
-}
-function renderAIMsgs() {
-  return S.aiMessages.map(m=>
-    '<div class="ai-msg-wrap"><div class="ai-from">'+(m.role==='assistant'?'AI Interpreter':'You')+'</div>'+
-    '<div class="ai-bubble '+m.role+'" style="white-space:pre-wrap">'+m.content+'</div></div>'
-  ).join('');
-}
-function updateAI() { const el=document.getElementById('ai-msgs'); if(el){el.innerHTML=renderAIMsgs();scrollAI();} }
-function scrollAI() { const el=document.getElementById('ai-msgs'); if(el) setTimeout(()=>{el.scrollTop=el.scrollHeight;},50); }
-function askAI(q) { S.aiMessages.push({role:'user',content:q}); updateAI(); callAI(); }
-async function sendAI() {
-  const inp=document.getElementById('ai-input');
-  if(!inp||S.aiLoading) return;
-  const text=inp.value.trim(); if(!text) return;
-  inp.value=''; askAI(text);
-}
-async function callAI() {
-  S.aiLoading=true;
-  const btn=document.getElementById('ai-send-btn'); if(btn) btn.innerHTML='<span class="spinner"></span>';
-  const msgs=document.getElementById('ai-msgs');
-  if(msgs){
-    const l=document.createElement('div'); l.className='ai-msg-wrap'; l.id='ai-loading';
-    l.innerHTML='<div class="ai-from">AI Interpreter</div><div class="ai-bubble assistant"><span class="spinner"></span> Thinking...</div>';
-    msgs.appendChild(l); scrollAI();
-  }
-  try {
-    const resp=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,
-        system:'You are an educational AI assistant for the Medical Laboratory Assistant (MLA) program at Red Deer Polytechnic in Alberta, Canada. Help students understand lab results, reference ranges, flags, specimen handling, and clinical significance. Use Canadian spelling. Always note when physician consultation is required. This is a learning environment only. When interpreting results explain: what the test measures, what the abnormality suggests, possible causes, and the MLA role. Be concise and clear.',
-        messages:S.aiMessages.map(m=>({role:m.role,content:m.content}))})});
-    const data=await resp.json();
-    const reply=data.content&&data.content[0]?data.content[0].text:'No response.';
-    const l=document.getElementById('ai-loading'); if(l) l.remove();
-    S.aiMessages.push({role:'assistant',content:reply}); updateAI();
-  } catch(e) {
-    const l=document.getElementById('ai-loading'); if(l) l.remove();
-    S.aiMessages.push({role:'assistant',content:'Error connecting to AI. Please try again.'}); updateAI();
-  }
-  S.aiLoading=false;
-  const btn2=document.getElementById('ai-send-btn'); if(btn2) btn2.innerHTML='<i class="ti ti-send"></i>';
-}
-function sendToAI(oid) {
-  const o=S.orders.find(x=>x.id===oid);
-  const pt=S.patients.find(p=>p.id===o.patientId);
-  const res=S.results.filter(r=>r.orderId===oid);
-  let summary='Patient: '+ptName(pt)+', '+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+
-    '\nIndication: '+(o.indication||'Not specified')+
-    '\nPanel: '+o.panel+
-    '\nCollector ID: '+(o.collectorId||'--')+' | Collection: '+(o.collectionDate||'?')+' '+(o.collectionTime||'')+
-    '\nResults:\n';
-  res.forEach(r=>{
-    const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,pt?pt.sex:'M');
-    summary+='  '+(ref?ref.name:r.testKey)+': '+r.value+' '+(ref?ref.unit:'')+' '+(fl.flag?'['+fl.flag+']':'')+'\n';
-  });
-  S._aiContext=summary; nav('ai');
-}
 
 S.patients=[...MOCK_PATIENTS];
 render();
