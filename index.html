@@ -78,6 +78,9 @@ tbody tr:hover td{background:#f9f9f7}
 .warn-box{background:#faeeda;border-radius:8px;padding:10px 14px;font-size:12px;color:#854f0b;margin-bottom:12px}
 .danger-box{background:#fcebeb;border-radius:8px;padding:10px 14px;font-size:12px;color:#a32d2d;margin-bottom:12px}
 .empty{text-align:center;padding:36px 20px;color:#666}
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:#666}
+.sync-bar select{padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:11px;background:#fff;color:#111;font-family:inherit}
+.sync-status{font-size:10px;color:#666;white-space:nowrap}
 @media print{
   .sidebar,.topbar,.btn,.nav-item{display:none!important}
   .main{overflow:visible}.content{padding:0}
@@ -120,7 +123,22 @@ tbody tr:hover td{background:#f9f9f7}
   <div class="main">
     <div class="topbar">
       <div class="topbar-title" id="topbar-title"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
-      <div class="topbar-right" id="topbar-right"></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="sync-bar">
+          <select id="syncDay" onchange="onSyncDayChange()">
+            <option value="">Day --</option>
+            <option value="mon">Monday</option>
+            <option value="tue">Tuesday</option>
+            <option value="wed">Wednesday</option>
+            <option value="thu">Thursday</option>
+            <option value="fri">Friday</option>
+          </select>
+          <button class="btn btn-sm" onclick="loadFromServer()"><i class="ti ti-download"></i>Load</button>
+          <button class="btn btn-sm btn-primary" onclick="saveToServer()"><i class="ti ti-cloud-upload"></i>Save</button>
+          <span class="sync-status" id="syncStatus">Not saved yet</span>
+        </div>
+        <div class="topbar-right" id="topbar-right"></div>
+      </div>
     </div>
     <div class="content" id="content"></div>
   </div>
@@ -136,6 +154,83 @@ const S = {
   testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
   _quickOrderPt: null
 };
+
+const SYNC_API_BASE = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
+let syncBusy = false;
+
+function todayWeekdayKey() {
+  const d = new Date().getDay(); // 0=Sun,1=Mon,...6=Sat
+  const map = {1:'mon',2:'tue',3:'wed',4:'thu',5:'fri'};
+  return map[d] || '';
+}
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = msg;
+}
+
+function onSyncDayChange() {
+  // Just remembers the selection; actual load/save happens on button press.
+}
+
+async function saveToServer() {
+  if (syncBusy) return;
+  const day = document.getElementById('syncDay').value;
+  if (!day) { alert('Please select a day (Mon-Fri) before saving.'); return; }
+  syncBusy = true;
+  setSyncStatus('Saving...');
+  try {
+    const payload = {
+      patients: S.patients,
+      orders: S.orders,
+      results: S.results,
+      testCounter: S.testCounter
+    };
+    const res = await fetch(SYNC_API_BASE + '/state?day=' + day, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    setSyncStatus('Last saved: ' + nowTime());
+  } catch (err) {
+    setSyncStatus('Save failed - try again');
+    alert('Saving failed. Please check your internet connection and try again.\n\n(' + err.message + ')');
+  } finally {
+    syncBusy = false;
+  }
+}
+
+async function loadFromServer() {
+  if (syncBusy) return;
+  const day = document.getElementById('syncDay').value;
+  if (!day) { alert('Please select a day (Mon-Fri) before loading.'); return; }
+  const confirmed = confirm('Loading will replace everything currently on screen with the saved data for this day. Continue?');
+  if (!confirmed) return;
+  syncBusy = true;
+  setSyncStatus('Loading...');
+  try {
+    const res = await fetch(SYNC_API_BASE + '/state?day=' + day, { method: 'GET' });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    const data = await res.json();
+    if (data && Object.keys(data).length > 0) {
+      S.patients = data.patients || [];
+      S.orders = data.orders || [];
+      S.results = data.results || [];
+      S.testCounter = data.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0};
+      const now = nowTime();
+      setSyncStatus('Loaded at: ' + now);
+    } else {
+      setSyncStatus('No saved data for this day yet');
+    }
+    nav('dashboard');
+  } catch (err) {
+    setSyncStatus('Load failed - try again');
+    alert('Loading failed. Please check your internet connection and try again.\n\n(' + err.message + ')');
+  } finally {
+    syncBusy = false;
+  }
+}
 
 const SEX_OPTS = [
   {val:'M',label:'Male'},
@@ -292,7 +387,12 @@ function genAcc(dept) {
   return yr+'RD-'+day+dept+String(S.testCounter[dept]).padStart(5,'0');
 }
 function today() { return new Date().toISOString().slice(0,10); }
-function nowTime() { return new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'}); }
+function nowTime() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return hh+mm;
+}
 function age(dob) {
   if(!dob) return '?';
   const d=new Date(dob), t=new Date();
@@ -1082,6 +1182,7 @@ function setCheck(key,val) { checklistState[key]=val; renderChecklist(); }
 function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';renderChecklist();} }
 
 S.patients=[...MOCK_PATIENTS];
+document.getElementById('syncDay').value = todayWeekdayKey();
 render();
 
 </script>
