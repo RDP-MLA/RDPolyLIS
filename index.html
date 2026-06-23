@@ -205,7 +205,7 @@ async function loadFromServer() {
   if (syncBusy) return;
   const day = document.getElementById('syncDay').value;
   if (!day) { alert('Please select a day (Mon-Fri) before loading.'); return; }
-  const confirmed = confirm('Loading will replace everything currently on screen with the saved data for this day. Continue?');
+  const confirmed = confirm('Loading will completely replace everything on this screen with the last SAVED version for this day.\n\nAny changes made since your last Save (including new patients, orders, or results) will be LOST and cannot be recovered.\n\nContinue with Load?');
   if (!confirmed) return;
   syncBusy = true;
   setSyncStatus('Loading...');
@@ -306,16 +306,23 @@ const REF = {
     options:['0-5','6-10','11-20','21-50','>50'],peds:'Similar'},
   UAM_RBC:{name:'RBC',unit:'/hpf',qualitative:true,reflex:false,
     options:['0-2','3-5','6-10','11-20','>20'],peds:'Similar'},
-  UAM_Epi:{name:'Epithelial Cells',unit:'/hpf',qualitative:true,reflex:false,
+  UAM_Epi:{name:'Squamous / Transitional Epithelial Cells',unit:'/hpf',qualitative:true,reflex:false,
     options:['0-5','6-10','>10'],peds:'Similar'},
+  UAM_RenalEpi:{name:'Renal Epithelial Cells',unit:'/hpf',qualitative:true,reflex:false,pathFlag:true,
+    options:['Not present','0-5','6-10','>10'],peds:'Similar'},
   UAM_WBCClumps:{name:'WBC Clumps',unit:'',qualitative:true,reflex:false,
     options:['Not present','Present'],peds:''},
-  UAM_Casts:{name:'Casts (total)',unit:'/lpf',qualitative:true,reflex:false,
-    options:['0-2','3-5','6-10','11-20','>20'],peds:'Similar'},
-  UAM_CrystalsAcid:{name:'Crystals - Acid pH',unit:'/hpf',qualitative:true,reflex:false,
-    options:['None seen','0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
-  UAM_CrystalsAlkaline:{name:'Crystals - Alkaline pH',unit:'/hpf',qualitative:true,reflex:false,
-    options:['None seen','0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
+  UAM_Casts:{name:'Casts',unit:'/lpf',repeatable:true,reflex:false,
+    typeOptions:['Hyaline','Granular','RBC','WBC','Waxy','Fatty'],
+    rangeOptions:['0-2','3-5','6-10','11-20','>20'],peds:'Similar'},
+  UAM_CrystalsAcid:{name:'Crystals - Acid pH',unit:'/hpf',repeatable:true,reflex:false,
+    typeOptions:['Amorphous urates','Uric acid','Calcium oxalate','Sodium urate','Calcium sulfate','Bilirubin','Cholesterol','Cystine*','Leucine*','Tyrosine*'],
+    pathTypes:['Cystine*','Leucine*','Tyrosine*'],
+    rangeOptions:['0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
+  UAM_CrystalsAlkaline:{name:'Crystals - Alkaline pH',unit:'/hpf',repeatable:true,reflex:false,
+    typeOptions:['Amorphous phosphates','Calcium phosphate','Calcium carbonate','Ammonium biurate','Triple phosphate'],
+    pathTypes:[],
+    rangeOptions:['0-1','2-9','10-24','25-50','>50'],peds:'Similar'},
   UAM_Bacteria:{name:'Bacteria',unit:'/hpf',qualitative:true,reflex:false,
     options:['0-20','>20'],peds:'Similar'},
   UAM_Yeast:{name:'Yeast',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
@@ -323,7 +330,7 @@ const REF = {
   UAM_Trich:{name:'Trichomonas vaginalis',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
   UAM_Entero:{name:'Enterobius vermicularis',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
   UAM_FatGlobules:{name:'Fat Globules',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
-  UAM_OvalFatBodies:{name:'Oval Fat Bodies',unit:'',qualitative:true,reflex:false,options:['Not present','Present'],peds:''},
+  UAM_OvalFatBodies:{name:'Oval Fat Bodies',unit:'',qualitative:true,reflex:false,pathFlag:true,options:['Not present','Present'],peds:''},
   ABO:{name:'ABO Group',unit:'',qualitative:true,options:['A','B','AB','O'],peds:''},
   Rh:{name:'Rh Type',unit:'',qualitative:true,options:['Positive','Negative'],peds:''},
   Ab_Sc:{name:'Antibody Screen',unit:'',qualitative:true,options:['Negative','Positive'],peds:''},
@@ -345,7 +352,7 @@ const PANELS = {
   Cardiac:{name:'Cardiac Panel',dept:'C',tests:['Trop','CK'],tube:'SST (gold)'},
   Thyroid:{name:'Thyroid TSH',dept:'C',tests:['TSH'],tube:'SST (gold)'},
   UA:{name:'UA',dept:'U',tests:['UA_Color','UA_Clarity','UA_SG','UA_pH2','UA_Prot2','UA_Gluc2','UA_Ket2','UA_Blood2','UA_Nit2','UA_Leuk2','UA_ReflexNote'],tube:'Urine cup (60 mL sterile)'},
-  UAMicro:{name:'UA-MICRO',dept:'U',tests:['UAM_WBC','UAM_RBC','UAM_Epi','UAM_WBCClumps','UAM_Casts','UAM_CrystalsAcid','UAM_CrystalsAlkaline','UAM_Bacteria','UAM_Yeast','UAM_Sperm','UAM_Trich','UAM_Entero','UAM_FatGlobules','UAM_OvalFatBodies'],tube:'Urine cup (same specimen, centrifuged)'},
+  UAMicro:{name:'UA-MICRO',dept:'U',tests:['UAM_WBC','UAM_RBC','UAM_Epi','UAM_RenalEpi','UAM_WBCClumps','UAM_Casts','UAM_CrystalsAcid','UAM_CrystalsAlkaline','UAM_Bacteria','UAM_Yeast','UAM_Sperm','UAM_Trich','UAM_Entero','UAM_FatGlobules','UAM_OvalFatBodies'],tube:'Urine cup (same specimen, centrifuged)'},
   TypeScreen:{name:'Type and Screen',dept:'T',tests:['ABO','Rh','Ab_Sc'],tube:'EDTA (pink transfusion)'},
   TypeXM:{name:'Type and Crossmatch',dept:'T',tests:['ABO','Rh','Ab_Sc','XM'],tube:'EDTA (pink transfusion)'},
   DAT_Test:{name:'Direct Antiglobulin Test',dept:'T',tests:['DAT'],tube:'EDTA (pink transfusion)'}
@@ -709,7 +716,7 @@ function receiveSpecimen(oid) {
     '<div class="info-box" style="margin-bottom:14px"><strong>'+ptName(pt)+'</strong> | '+o.panel+' | '+o.tube+'</div>'+
     '<div style="font-weight:500;font-size:12px;margin-bottom:10px">Collection information (as labelled on tube)</div>'+
     '<div class="grid2"><div class="field"><label>Collection Date *</label><input id="colDate" type="date" value="'+o.date+'"></div>'+
-    '<div class="field"><label>Collection Time *</label><input id="colTime" type="time"></div></div>'+
+    '<div class="field"><label>Collection Time * (24hr, e.g. 1346)</label><input id="colTime" placeholder="1346" maxlength="4" inputmode="numeric"></div></div>'+
     '<div class="field"><label>Collector ID * (employee ID, student ID, or initials)</label><input id="colId" placeholder="e.g. JM or S12345"></div>'+
     '<div class="field"><label>Collector name (optional)</label><input id="colName"></div>'+
     '<div class="field"><label>Specimen condition on receipt</label><select id="colCond">'+
@@ -722,9 +729,10 @@ function receiveSpecimen(oid) {
      {label:'Reject',cls:'btn btn-danger',fn:()=>{const cond=document.getElementById('colCond').value;closeModal();rejectOrderModal(oid,cond);}},
      {label:'Accept and Receive',cls:'btn btn-primary',fn:()=>{
       const colDate=document.getElementById('colDate').value;
-      const colTime=document.getElementById('colTime').value;
+      const colTime=document.getElementById('colTime').value.trim();
       const colId=document.getElementById('colId').value.trim();
       if(!colDate||!colTime||!colId){alert('Collection date, time, and collector ID are required.');return;}
+      if(!/^\d{4}$/.test(colTime)){alert('Collection time must be 4 digits, 24-hour format (e.g. 1346).');return;}
       o.collectionDate=colDate; o.collectionTime=colTime; o.collectorId=colId;
       o.collectorName=document.getElementById('colName').value.trim();
       o.receiptCondition=document.getElementById('colCond').value;
@@ -806,6 +814,8 @@ function renderResults() {
 function enterResults(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
+  _currentResultsPt = pt;
+  _repeatableRows = {};
   const isPeds=pt&&age(pt.dob)<18;
   const sex=pt?pt.sex:'M';
   const existing={};
@@ -817,6 +827,10 @@ function enterResults(oid) {
     if(rs==='F'){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
     const pedsNote=isPeds&&r.peds?'<span style="color:#854f0b;font-size:10px"> Peds: '+r.peds+'</span>':'';
     const nbNote=nonBinary&&r.femLo!=null?'<span style="font-size:10px;color:#666"> (unisex)</span>':'';
+    if(r.repeatable){
+      return '<tr><td style="font-weight:500;vertical-align:top">'+r.name+'</td>'+
+        '<td colspan="3">'+renderRepeatableField(tk,r,existing[tk]||'')+'</td></tr>';
+    }
     if(r.freetext){
       return '<tr><td style="font-weight:500">'+r.name+'</td>'+
         '<td colspan="3"><textarea id="res_'+tk+'" style="width:100%;min-height:50px;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit" placeholder="Optional notes">'+(existing[tk]||'')+'</textarea></td></tr>';
@@ -824,7 +838,7 @@ function enterResults(oid) {
     if(r.qualitative){
       return '<tr><td style="font-weight:500">'+r.name+'</td>'+
         '<td><select id="res_'+tk+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit" '+
-        (r.reflex?'onchange="checkReflex()"':'')+'>'+
+        'onchange="'+(r.reflex?'checkReflex();':'')+'checkPathFlags()">'+
         '<option value="">--</option>'+r.options.map(op=>'<option '+(existing[tk]===op?'selected':'')+'>'+op+'</option>').join('')+
         '</select></td><td style="font-size:11px;color:#666">'+r.options.join(' / ')+pedsNote+'</td><td id="flag_'+tk+'"></td></tr>';
     }
@@ -842,24 +856,126 @@ function enterResults(oid) {
     (nonBinary?'<span class="badge badge-purple">Unisex ranges</span>':'')+
     '</div>'+
     '<div id="reflexBanner"></div>'+
+    '<div id="pathFlagBanner"></div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>'+rows+'</tbody></table>',
     [{label:'Cancel',cls:'btn',fn:closeModal},
      {label:'Save Results',cls:'btn btn-primary',fn:()=>{
       S.results=S.results.filter(r=>r.orderId!==oid);
       let hasCrit=false;
       o.tests.forEach(tk=>{
-        const el=document.getElementById('res_'+tk);
-        if(!el||!el.value) return;
-        const crit=isCrit(tk,el.value,sex);
+        const r=REF[tk];
+        let val;
+        if(r&&r.repeatable){ val=serializeRepeatableField(tk); }
+        else { const el=document.getElementById('res_'+tk); val=el?el.value:''; }
+        if(!val) return;
+        const crit=isCrit(tk,val,sex);
         if(crit) hasCrit=true;
-        S.results.push({id:'RES-'+Date.now()+'-'+tk,orderId:oid,testKey:tk,value:el.value,
+        S.results.push({id:'RES-'+Date.now()+'-'+tk,orderId:oid,testKey:tk,value:val,
           accession:o.accession,critical:crit,callbackDone:false,enteredAt:nowTime(),ts:Date.now()});
       });
-      o.status='resulted'; closeModal();
+      const flags=computePathFlags(pt);
+      o.status='resulted'; o.pathFlagged=flags.length>0; o.pathFlagReasons=flags;
+      closeModal();
       if(hasCrit) alert('CRITICAL VALUE(S) detected. Notify physician immediately and document callback.');
+      if(flags.length) alert('REFERRED TO PATHOLOGIST FOR REVIEW: '+flags.join('; '));
       nav('verify');
     }}]);
   checkReflex();
+  checkPathFlags();
+}
+
+// --- Repeatable type+range field support (Casts, Crystals) ---
+// Stored/serialized as a semicolon-separated string, e.g. "Hyaline 0-2; Granular 3-5"
+let _repeatableRows = {}; // tk -> array of {type, range}
+
+function parseRepeatableValue(val) {
+  if(!val) return [];
+  return val.split(';').map(s=>s.trim()).filter(Boolean).map(part=>{
+    const idx=part.lastIndexOf(' ');
+    return idx>-1 ? {type:part.slice(0,idx).trim(), range:part.slice(idx+1).trim()} : {type:part, range:''};
+  });
+}
+
+function renderRepeatableField(tk, r, existingVal) {
+  if(!_repeatableRows[tk]) _repeatableRows[tk]=parseRepeatableValue(existingVal);
+  if(_repeatableRows[tk].length===0) _repeatableRows[tk]=[];
+  return '<div id="repWrap_'+tk+'">'+renderRepeatableRows(tk,r)+'</div>'+
+    '<button type="button" class="btn btn-sm" style="margin-top:6px" onclick="addRepeatableRow(\''+tk+'\')"><i class="ti ti-plus"></i>Add finding</button>'+
+    (r.pathTypes&&r.pathTypes.length?'<div style="font-size:10px;color:#854f0b;margin-top:4px">* Pathological -- selecting this type will flag the report for pathologist review</div>':'');
+}
+
+function renderRepeatableRows(tk, r) {
+  const rows=_repeatableRows[tk]||[];
+  if(rows.length===0) return '<div style="font-size:11px;color:#666">None added</div>';
+  return rows.map((row,i)=>
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'+
+    '<select id="repType_'+tk+'_'+i+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit;flex:1" onchange="updateRepeatableRow(\''+tk+'\','+i+')">'+
+    r.typeOptions.map(t=>'<option '+(row.type===t?'selected':'')+'>'+t+'</option>').join('')+
+    '</select>'+
+    '<select id="repRange_'+tk+'_'+i+'" style="padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit;width:90px" onchange="updateRepeatableRow(\''+tk+'\','+i+')">'+
+    r.rangeOptions.map(rg=>'<option '+(row.range===rg?'selected':'')+'>'+rg+'</option>').join('')+
+    '</select>'+
+    '<button type="button" class="btn btn-sm btn-danger" onclick="removeRepeatableRow(\''+tk+'\','+i+')"><i class="ti ti-x"></i></button>'+
+    '</div>'
+  ).join('');
+}
+
+function addRepeatableRow(tk) {
+  const r=REF[tk];
+  if(!_repeatableRows[tk]) _repeatableRows[tk]=[];
+  _repeatableRows[tk].push({type:r.typeOptions[0], range:r.rangeOptions[0]});
+  document.getElementById('repWrap_'+tk).innerHTML=renderRepeatableRows(tk,r);
+  checkPathFlags();
+}
+function removeRepeatableRow(tk,i) {
+  _repeatableRows[tk].splice(i,1);
+  document.getElementById('repWrap_'+tk).innerHTML=renderRepeatableRows(tk,REF[tk]);
+  checkPathFlags();
+}
+function updateRepeatableRow(tk,i) {
+  const typeEl=document.getElementById('repType_'+tk+'_'+i);
+  const rangeEl=document.getElementById('repRange_'+tk+'_'+i);
+  if(typeEl&&rangeEl){ _repeatableRows[tk][i]={type:typeEl.value, range:rangeEl.value}; }
+  checkPathFlags();
+}
+function serializeRepeatableField(tk) {
+  const rows=_repeatableRows[tk]||[];
+  return rows.map(r=>r.type+' '+r.range).join('; ');
+}
+
+// --- Pathologist review auto-flagging ---
+// Triggers: Oval Fat Bodies present; Renal Epithelial Cells present (any non-"Not present" value);
+// any pathological crystal type selected (Cystine/Leucine/Tyrosine); Sperm present where patient is
+// confirmed Female AND confirmed under 16 (unknown/missing sex or DOB does NOT trigger this one).
+let _currentResultsPt = null; // set when enterResults() opens the modal; used by checkPathFlags
+
+function computePathFlags(pt) {
+  const reasons=[];
+  const ofbEl=document.getElementById('res_UAM_OvalFatBodies');
+  if(ofbEl&&ofbEl.value==='Present') reasons.push('Oval Fat Bodies present');
+
+  const renalEl=document.getElementById('res_UAM_RenalEpi');
+  if(renalEl&&renalEl.value&&renalEl.value!=='Not present') reasons.push('Renal Epithelial Cells present');
+
+  ['UAM_CrystalsAcid','UAM_CrystalsAlkaline'].forEach(tk=>{
+    const r=REF[tk]; if(!r||!r.pathTypes) return;
+    const rows=_repeatableRows[tk]||[];
+    rows.forEach(row=>{ if(r.pathTypes.includes(row.type)) reasons.push('Pathological crystal present: '+row.type.replace('*','')); });
+  });
+
+  const spermEl=document.getElementById('res_UAM_Sperm');
+  if(spermEl&&spermEl.value==='Present'&&pt&&pt.sex==='F'&&pt.dob&&age(pt.dob)<16){
+    reasons.push('Sperm present in a patient under 16');
+  }
+  return reasons;
+}
+function checkPathFlags() {
+  const banner=document.getElementById('pathFlagBanner');
+  if(!banner) return;
+  const reasons=computePathFlags(_currentResultsPt);
+  banner.innerHTML = reasons.length
+    ? '<div class="danger-box"><i class="ti ti-alert-triangle"></i> <strong>REFERRED TO PATHOLOGIST FOR REVIEW</strong> -- '+reasons.join('; ')+'</div>'
+    : '';
 }
 function checkReflex() {
   const banner=document.getElementById('reflexBanner');
@@ -982,6 +1098,7 @@ function showReport(oid) {
     '<div>Collection: '+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</div>'+
     '<div>Indication: '+(o.indication||'--')+'</div><div>Priority: '+o.priority+'</div></div></div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    (o.pathFlagged?'<div class="danger-box" style="margin-top:12px"><i class="ti ti-alert-triangle"></i> <strong>REFERRED TO PATHOLOGIST FOR REVIEW</strong> -- '+(o.pathFlagReasons||[]).join('; ')+'</div>':'')+
     '<div style="margin-top:12px;font-size:10px;color:#666">FOR EDUCATIONAL USE ONLY -- NOT FOR CLINICAL DECISIONS</div>',
     [{label:'Close',cls:'btn',fn:closeModal},
      ...(o.panelKey==='UA'||o.panelKey==='UAMicro'?[{label:'Download PDF',cls:'btn btn-success',fn:()=>{printableReport(oid);}}]:[])]);
@@ -1032,6 +1149,7 @@ function printableReport(oid) {
     '</table>'+
     '<div class="section-title">'+o.panel+' Results</div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    (o.pathFlagged?'<div style="margin-top:14px;padding:10px 12px;border:2px solid #a32d2d;border-radius:6px;background:#fcebeb;color:#a32d2d;font-weight:600;font-size:12px">REFERRED TO PATHOLOGIST FOR REVIEW -- '+(o.pathFlagReasons||[]).join('; ')+'</div>':'')+
     '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>'+
     '</body></html>';
