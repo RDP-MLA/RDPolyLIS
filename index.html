@@ -251,11 +251,13 @@ const REF = {
   MCHC:{name:'MCHC',unit:'g/L',lo:315,hi:360,critLo:null,critHi:null,peds:'Similar to adult'},
   RDW:{name:'RDW',unit:'%',lo:11.5,hi:14.5,critLo:null,critHi:null,peds:'Similar to adult'},
   Plt:{name:'Platelets',unit:'x10^9/L',lo:150,hi:400,critLo:50,critHi:1000,peds:'Similar to adult'},
-  Neut:{name:'Neutrophils',unit:'x10^9/L',lo:1.8,hi:7.7,critLo:0.5,critHi:null,peds:'Neonates higher'},
-  Lymph:{name:'Lymphocytes',unit:'x10^9/L',lo:1.0,hi:4.8,critLo:null,critHi:null,peds:'Children 2.0-8.0'},
-  Mono:{name:'Monocytes',unit:'x10^9/L',lo:0.2,hi:1.0,critLo:null,critHi:null,peds:'Similar to adult'},
-  Eos:{name:'Eosinophils',unit:'x10^9/L',lo:0.0,hi:0.5,critLo:null,critHi:null,peds:'Similar to adult'},
-  Baso:{name:'Basophils',unit:'x10^9/L',lo:0.0,hi:0.1,critLo:null,critHi:null,peds:'Similar to adult'},
+  Neut:{name:'Neutrophils',unit:'%',lo:40,hi:70,critLo:null,critHi:null,peds:'Neonates higher',diffPct:true},
+  Lymph:{name:'Lymphocytes',unit:'%',lo:20,hi:40,critLo:null,critHi:null,peds:'Children up to 60',diffPct:true},
+  Mono:{name:'Monocytes',unit:'%',lo:2,hi:8,critLo:null,critHi:null,peds:'Similar to adult',diffPct:true},
+  Eos:{name:'Eosinophils',unit:'%',lo:1,hi:4,critLo:null,critHi:null,peds:'Similar to adult',diffPct:true},
+  Baso:{name:'Basophils',unit:'%',lo:0,hi:1,critLo:null,critHi:null,peds:'Similar to adult',diffPct:true},
+  PltEst:{name:'Platelet Estimate',qualitative:true,options:['Markedly decreased','Decreased','Adequate/Normal','Increased','Markedly increased']},
+  DiffComment:{name:'Differential Comment',freetext:true},
   PT:{name:'PT',unit:'s',lo:11,hi:14,critLo:null,critHi:30,peds:'Similar to adult'},
   INR:{name:'INR',unit:'',lo:0.9,hi:1.1,critLo:null,critHi:4.0,peds:'Similar to adult'},
   aPTT:{name:'aPTT',unit:'s',lo:25,hi:38,critLo:null,critHi:80,peds:'Similar to adult'},
@@ -341,7 +343,7 @@ const REF = {
 
 const PANELS = {
   CBC:{name:'CBC',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt'],tube:'EDTA (lavender)'},
-  CBCDiff:{name:'CBC + Differential',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt','Neut','Lymph','Mono','Eos','Baso'],tube:'EDTA (lavender)'},
+  CBCDiff:{name:'CBC + Differential',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt','Neut','Lymph','Mono','Eos','Baso','PltEst','DiffComment'],tube:'EDTA (lavender)'},
   PT_INR:{name:'PT/INR',dept:'O',tests:['PT','INR'],tube:'Citrate (blue)'},
   aPTT:{name:'aPTT',dept:'O',tests:['aPTT'],tube:'Citrate (blue)'},
   CoagFull:{name:'Full Coagulation Panel',dept:'O',tests:['PT','INR','aPTT','Fibrinogen','TT'],tube:'Citrate (blue)'},
@@ -827,6 +829,10 @@ function enterResults(oid) {
     if(rs==='F'){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
     const pedsNote=isPeds&&r.peds?'<span style="color:#854f0b;font-size:10px"> Peds: '+r.peds+'</span>':'';
     const nbNote=nonBinary&&r.femLo!=null?'<span style="font-size:10px;color:#666"> (unisex)</span>':'';
+    if(r.diffPct){
+      if(tk!=='Neut') return ''; // Lymph/Mono/Eos/Baso are rendered as part of the Neut block below
+      return renderDiffGroupRow(sex, existing);
+    }
     if(r.repeatable){
       return '<tr><td style="font-weight:500;vertical-align:top">'+r.name+'</td>'+
         '<td colspan="3">'+renderRepeatableField(tk,r,existing[tk]||'')+'</td></tr>';
@@ -860,6 +866,17 @@ function enterResults(oid) {
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>'+rows+'</tbody></table>',
     [{label:'Cancel',cls:'btn',fn:closeModal},
      {label:'Save Results',cls:'btn btn-primary',fn:()=>{
+      if(o.tests.includes('Neut')){
+        let sum=0, filled=0;
+        DIFF_KEYS.forEach(tk=>{
+          const inp=document.getElementById('res_'+tk);
+          if(inp&&inp.value!==''){ sum+=parseFloat(inp.value)||0; filled++; }
+        });
+        if(filled>0 && (filled<DIFF_KEYS.length || Math.round(sum)!==100)){
+          alert('Manual Differential must total 100 cells before saving (currently '+Math.round(sum)+'/100). Complete all 5 fields or clear them.');
+          return;
+        }
+      }
       S.results=S.results.filter(r=>r.orderId!==oid);
       let hasCrit=false;
       o.tests.forEach(tk=>{
@@ -882,10 +899,48 @@ function enterResults(oid) {
     }}]);
   checkReflex();
   checkPathFlags();
+  updateDiffTally();
 }
 
 // --- Repeatable type+range field support (Casts, Crystals) ---
 // Stored/serialized as a semicolon-separated string, e.g. "Hyaline 0-2; Granular 3-5"
+const DIFF_KEYS = ['Neut','Lymph','Mono','Eos','Baso'];
+
+function renderDiffGroupRow(sex, existing) {
+  const cells = DIFF_KEYS.map(tk=>{
+    const r=REF[tk];
+    const rs=refSex(sex); let lo=r.lo, hi=r.hi;
+    if(rs==='F'){if(r.femLo!=null)lo=r.femLo;if(r.femHi!=null)hi=r.femHi;}
+    return '<div>'+
+      '<label style="font-size:11px;color:#666;display:block;margin-bottom:3px">'+r.name+' %</label>'+
+      '<input id="res_'+tk+'" type="number" min="0" max="100" step="any" value="'+(existing[tk]||'')+'" '+
+      'style="width:100%;padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:12px;background:#fff;color:#111;font-family:inherit" '+
+      'oninput="liveFlag(\''+tk+'\',\''+sex+'\');updateDiffTally()">'+
+      '<div style="font-size:10px;color:#666;margin-top:2px">'+lo+'--'+hi+' %</div>'+
+      '<div id="flag_'+tk+'" style="margin-top:2px"></div>'+
+      '</div>';
+  }).join('');
+  return '<tr><td colspan="4">'+
+    '<div style="font-weight:500;margin-bottom:8px">Manual Differential -- 100 cell count</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">'+cells+'</div>'+
+    '<div id="diffTally" style="margin-top:8px;font-size:12px"></div>'+
+    '</td></tr>';
+}
+
+function updateDiffTally() {
+  const el=document.getElementById('diffTally');
+  if(!el) return;
+  let sum=0, filled=0;
+  DIFF_KEYS.forEach(tk=>{
+    const inp=document.getElementById('res_'+tk);
+    if(inp&&inp.value!==''){ sum+=parseFloat(inp.value)||0; filled++; }
+  });
+  if(filled===0){ el.innerHTML='<span style="color:#666">0 / 100 cells counted</span>'; return; }
+  const ok=filled===DIFF_KEYS.length && Math.round(sum)===100;
+  el.innerHTML='<span style="color:'+(ok?'#166534':'#854f0b')+';font-weight:500">'+
+    Math.round(sum)+' / 100 cells counted'+(ok?' -- complete':'')+'</span>';
+}
+
 let _repeatableRows = {}; // tk -> array of {type, range}
 
 function parseRepeatableValue(val) {
