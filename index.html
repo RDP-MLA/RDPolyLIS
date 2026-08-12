@@ -17,6 +17,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#f5f5f3;color:#1
 .nav-group{padding:8px 0}
 .nav-label{font-size:10px;font-weight:500;color:#999;padding:6px 14px 3px;letter-spacing:.06em;text-transform:uppercase}
 .nav-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#555;border-left:2px solid transparent;white-space:nowrap;overflow:hidden}
+.nav-batch-badge{margin-left:auto;background:#854f0b;color:#fff;font-size:10px;font-weight:600;border-radius:9px;padding:1px 7px;line-height:1.4}
 .nav-item:hover{background:#f5f5f3;color:#111}
 .nav-item.active{background:#e6f1fb;color:#185fa5;border-left-color:#185fa5;font-weight:500}
 .nav-item i{font-size:15px;flex-shrink:0}
@@ -40,6 +41,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#f5f5f3;color:#1
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .field{margin-bottom:10px}
 .field label{display:block;font-size:11px;color:#666;margin-bottom:3px;font-weight:500}
 .field input,.field select,.field textarea{width:100%;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;background:#fff;color:#111;font-size:12px;font-family:inherit}
@@ -117,7 +119,7 @@ tbody tr:hover td{background:#f9f9f7}
     <div class="nav-group">
       <div class="nav-label">Tools</div>
       <div class="nav-item" onclick="nav('rejected')" id="nav-rejected"><i class="ti ti-ban"></i>Rejected Specimens</div>
-      <div class="nav-item" onclick="nav('batches')" id="nav-batches"><i class="ti ti-truck"></i>Site Batches</div>
+      <div class="nav-item" onclick="nav('batches')" id="nav-batches"><i class="ti ti-truck"></i>Site Batches<span id="batchNavBadge"></span></div>
       <div class="nav-item" onclick="nav('checklist')" id="nav-checklist"><i class="ti ti-checkbox"></i>Competency Checklist</div>
     </div>
   </div>
@@ -463,7 +465,15 @@ function render() {
     heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor'
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
+  updateBatchNavBadge();
   const fn=map[S.currentPage]; if(fn) fn();
+}
+
+function updateBatchNavBadge() {
+  const el=document.getElementById('batchNavBadge'); if(!el) return;
+  const count=S.batches.filter(b=>b.status==='Open'||b.status==='In Transit').length;
+  el.className=count?'nav-batch-badge':'';
+  el.textContent=count?count:'';
 }
 
 function openModal(title, body, buttons) {
@@ -492,6 +502,7 @@ function renderDashboard() {
   const verified=S.orders.filter(o=>o.status==='verified').length;
   const rejected=S.orders.filter(o=>o.status==='rejected').length;
   const crits=S.results.filter(r=>r.critical&&!r.callbackDone).length;
+  const openBatches=S.batches.filter(b=>b.status==='Open'||b.status==='In Transit').length;
   const recent=[...S.orders].sort((a,b)=>b.ts-a.ts).slice(0,6)
     .map(o=>{ const pt=S.patients.find(p=>p.id===o.patientId);
       return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #e5e5e5;font-size:11px"><span>'+ptName(pt)+' -- '+o.panel+'</span><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></div>';
@@ -507,11 +518,12 @@ function renderDashboard() {
       '<td><button class="btn btn-sm btn-success" onclick="markCallback(\''+r.id+'\')"><i class="ti ti-phone"></i>Callback done</button></td></tr>';
   }).join('');
   document.getElementById('content').innerHTML =
-    '<div class="grid4" style="margin-bottom:14px">'+
+    '<div class="grid5" style="margin-bottom:14px">'+
     '<div class="stat"><div class="stat-label">Patients</div><div class="stat-value">'+S.patients.length+'</div></div>'+
     '<div class="stat"><div class="stat-label">Pending Orders</div><div class="stat-value">'+(pending+accessioned+received)+'</div></div>'+
     '<div class="stat"><div class="stat-label">Rejected</div><div class="stat-value" style="color:#a32d2d">'+rejected+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Critical Callbacks</div><div class="stat-value" style="color:#a32d2d">'+crits+'</div></div></div>'+
+    '<div class="stat"><div class="stat-label">Critical Callbacks</div><div class="stat-value" style="color:#a32d2d">'+crits+'</div></div>'+
+    '<div class="stat" style="cursor:pointer" onclick="nav(\'batches\')"><div class="stat-label">Open Site Batches</div><div class="stat-value" style="color:'+(openBatches?'#854f0b':'#111')+'">'+openBatches+'</div></div></div>'+
     '<div class="grid2">'+
     '<div class="card"><div class="card-title"><i class="ti ti-arrow-right"></i>Workflow Pipeline</div>'+
     wfRow('Ordered',pending,'badge-info')+wfRow('Accessioned',accessioned,'badge-warning')+
@@ -842,6 +854,7 @@ function openNewBatchModal(pendingOid) {
           status:'Open', specimens:[], createdAt:today()+' '+nowTime(), packagedAt:null, receivedAt:null};
         S.batches.push(b);
         if(pendingOid) _pushSpecimenToBatch(b, pendingOid);
+        updateBatchNavBadge();
         openBatchDetail(b.id);
      }}]);
 }
@@ -906,6 +919,7 @@ function closeAndPackageBatch(batchId) {
 function receiveBatch(batchId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
   b.status='Received'; b.receivedAt=today()+' '+nowTime();
+  updateBatchNavBadge();
   openBatchDetail(batchId);
 }
 
