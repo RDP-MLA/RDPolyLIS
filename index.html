@@ -79,6 +79,9 @@ tbody tr:hover td{background:#f9f9f7}
 .info-box{background:#e6f1fb;border-radius:8px;padding:10px 14px;font-size:12px;color:#185fa5;margin-bottom:12px}
 .warn-box{background:#faeeda;border-radius:8px;padding:10px 14px;font-size:12px;color:#854f0b;margin-bottom:12px}
 .danger-box{background:#fcebeb;border-radius:8px;padding:10px 14px;font-size:12px;color:#a32d2d;margin-bottom:12px}
+.sandbox-banner{background:#3C3489;color:#fff;padding:9px 22px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sandbox-banner .btn{background:#fff;color:#3C3489;border:none}
+.sandbox-banner .btn:hover{background:#EEEDFE}
 .empty{text-align:center;padding:36px 20px;color:#666}
 .sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:#666}
 .sync-bar select{padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:11px;background:#fff;color:#111;font-family:inherit}
@@ -127,7 +130,7 @@ tbody tr:hover td{background:#f9f9f7}
     <div class="topbar">
       <div class="topbar-title" id="topbar-title"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
       <div style="display:flex;align-items:center;gap:16px">
-        <div class="sync-bar">
+        <div class="sync-bar" id="syncBar">
           <select id="syncDay" onchange="onSyncDayChange()">
             <option value="">Day --</option>
             <option value="mon">Monday</option>
@@ -140,9 +143,11 @@ tbody tr:hover td{background:#f9f9f7}
           <button class="btn btn-sm btn-primary" onclick="saveToServer()"><i class="ti ti-cloud-upload"></i>Save</button>
           <span class="sync-status" id="syncStatus">Not saved yet</span>
         </div>
+        <button class="btn btn-sm" id="sandboxToggleBtn" onclick="toggleSandbox()"><i class="ti ti-flask-2"></i>Sandbox</button>
         <div class="topbar-right" id="topbar-right"></div>
       </div>
     </div>
+    <div id="sandboxBanner" style="display:none"></div>
     <div class="content" id="content"></div>
   </div>
 </div>
@@ -155,7 +160,7 @@ const S = {
   patients: [], orders: [], results: [], batches: [],
   currentPage: 'dashboard',
   testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
-  _quickOrderPt: null
+  _quickOrderPt: null, _sandbox: false
 };
 
 const BATCH_FACILITIES = ['University of Alberta Hospital (UAH)','Calgary DSC','Foothills Hospital','Red Deer Regional Health Center','Edmonton Base Lab','Calgary Provincial Lab'];
@@ -466,6 +471,7 @@ function render() {
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
   updateBatchNavBadge();
+  updateSandboxUI();
   const fn=map[S.currentPage]; if(fn) fn();
 }
 
@@ -548,7 +554,8 @@ function renderPatients() {
     '<td style="font-family:monospace;font-size:10px">'+p.healthNum+'</td>'+
     '<td>'+(p.ward||'--')+'</td><td>'+(p.physician||'--')+'</td>'+
     '<td><button class="btn btn-sm" onclick="viewPatient(\''+p.id+'\')"><i class="ti ti-eye"></i></button> '+
-    '<button class="btn btn-sm btn-primary" onclick="quickOrder(\''+p.id+'\')"><i class="ti ti-plus"></i>Order</button></td></tr>'
+    '<button class="btn btn-sm btn-primary" onclick="quickOrder(\''+p.id+'\')"><i class="ti ti-plus"></i>Order</button> '+
+    '<button class="btn btn-sm btn-danger" onclick="deletePatient(\''+p.id+'\')"><i class="ti ti-trash"></i></button></td></tr>'
   ).join(''):'<tr><td colspan="9"><div class="empty">No patients found</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="margin-bottom:12px"><div class="field" style="margin:0">'+
@@ -587,6 +594,21 @@ function openAddPatient() {
       });
       closeModal(); nav('patients');
     }}]);
+}
+
+function deletePatient(pid) {
+  const p=S.patients.find(x=>x.id===pid); if(!p) return;
+  const relatedOrders=S.orders.filter(o=>o.patientId===pid);
+  const msg=relatedOrders.length?
+    'Delete '+ptName(p)+'?\n\nThis patient has '+relatedOrders.length+' order(s) attached. Deleting this patient will also permanently delete all of their orders and results.\n\nThis cannot be undone.':
+    'Delete '+ptName(p)+'?\n\nThis cannot be undone.';
+  if(!confirm(msg)) return;
+  const orderIds=new Set(relatedOrders.map(o=>o.id));
+  S.orders=S.orders.filter(o=>o.patientId!==pid);
+  S.results=S.results.filter(r=>!orderIds.has(r.orderId));
+  S.batches.forEach(b=>{ b.specimens=b.specimens.filter(s=>!orderIds.has(s.orderId)); });
+  S.patients=S.patients.filter(x=>x.id!==pid);
+  render();
 }
 
 function viewPatient(id) {
@@ -1418,6 +1440,16 @@ function printableReport(oid) {
   w.document.open(); w.document.write(html); w.document.close();
 }
 
+function deleteOrder(oid) {
+  const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  if(!confirm('Delete this order?\n\n'+(o.accession||o.panel)+' -- '+(pt?ptName(pt):'')+' ('+o.panel+')\n\nThis will permanently remove the order and any results entered for it.\n\nThis cannot be undone.')) return;
+  S.orders=S.orders.filter(x=>x.id!==oid);
+  S.results=S.results.filter(r=>r.orderId!==oid);
+  S.batches.forEach(b=>{ b.specimens=b.specimens.filter(s=>s.orderId!==oid); });
+  render();
+}
+
 function renderSection(dept) {
   const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine'};
   document.getElementById('topbar-right').innerHTML='';
@@ -1436,7 +1468,8 @@ function renderSection(dept) {
       '<td>'+ptName(pt)+'</td><td>'+o.panel+'</td>'+
       '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
       '<td><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></td>'+
-      '<td>'+action+'</td></tr>';
+      '<td style="display:flex;gap:5px">'+action+
+      '<button class="btn btn-sm btn-danger" onclick="deleteOrder(\''+o.id+'\')"><i class="ti ti-trash"></i></button></td></tr>';
   }).join(''):'<tr><td colspan="6"><div class="empty">No orders for '+names[dept]+'</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="grid4" style="margin-bottom:14px">'+
@@ -1558,6 +1591,61 @@ function renderChecklist() {
 function toggleCheck(key,checked) { checklistState[key]=checked?'met':undefined; renderChecklist(); }
 function setCheck(key,val) { checklistState[key]=val; renderChecklist(); }
 function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';renderChecklist();} }
+
+// --- Sandbox Mode ---
+let _preSandboxState = null;
+
+function toggleSandbox() { if(S._sandbox) exitSandbox(); else enterSandbox(); }
+
+function enterSandbox() {
+  if(!confirm('Enter Sandbox Mode?\n\nYour current patients, orders, and results will be set aside (not deleted) while you explore. Nothing you do in the sandbox is saved -- it disappears when you exit or refresh the page.')) return;
+  _preSandboxState = {
+    patients: S.patients, orders: S.orders, results: S.results, batches: S.batches,
+    testCounter: S.testCounter
+  };
+  S.patients=[]; S.orders=[]; S.results=[]; S.batches=[];
+  S.testCounter={H:0,O:0,C:0,U:0,T:0,M:0,R:0};
+  S._sandbox=true;
+  nav('dashboard');
+}
+
+function exitSandbox() {
+  if(!confirm('Exit Sandbox Mode?\n\nEverything added in the sandbox will be discarded, and your previous work will be restored.')) return;
+  if(_preSandboxState){
+    S.patients=_preSandboxState.patients; S.orders=_preSandboxState.orders;
+    S.results=_preSandboxState.results; S.batches=_preSandboxState.batches;
+    S.testCounter=_preSandboxState.testCounter;
+  }
+  _preSandboxState=null;
+  S._sandbox=false;
+  nav('dashboard');
+}
+
+function loadSandboxSampleData() {
+  S.patients=[...MOCK_PATIENTS];
+  render();
+}
+
+function updateSandboxUI() {
+  const banner=document.getElementById('sandboxBanner');
+  const toggleBtn=document.getElementById('sandboxToggleBtn');
+  const syncBar=document.getElementById('syncBar');
+  if(!banner||!toggleBtn||!syncBar) return;
+  if(S._sandbox){
+    banner.style.display='block';
+    banner.innerHTML='<div class="sandbox-banner"><span><i class="ti ti-flask-2"></i> <strong>SANDBOX MODE</strong> -- explore freely, nothing here is saved. Your real data is set aside and will return when you exit.</span>'+
+      '<span style="display:flex;gap:8px">'+
+      '<button class="btn btn-sm" onclick="loadSandboxSampleData()"><i class="ti ti-database"></i>Load sample data</button>'+
+      '<button class="btn btn-sm" onclick="exitSandbox()"><i class="ti ti-logout"></i>Exit Sandbox</button></span></div>';
+    toggleBtn.style.display='none';
+    syncBar.style.display='none';
+  } else {
+    banner.style.display='none';
+    banner.innerHTML='';
+    toggleBtn.style.display='';
+    syncBar.style.display='';
+  }
+}
 
 S.patients=[...MOCK_PATIENTS];
 document.getElementById('syncDay').value = todayWeekdayKey();
