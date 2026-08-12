@@ -117,6 +117,7 @@ tbody tr:hover td{background:#f9f9f7}
     <div class="nav-group">
       <div class="nav-label">Tools</div>
       <div class="nav-item" onclick="nav('rejected')" id="nav-rejected"><i class="ti ti-ban"></i>Rejected Specimens</div>
+      <div class="nav-item" onclick="nav('batches')" id="nav-batches"><i class="ti ti-truck"></i>Site Batches</div>
       <div class="nav-item" onclick="nav('checklist')" id="nav-checklist"><i class="ti ti-checkbox"></i>Competency Checklist</div>
     </div>
   </div>
@@ -149,11 +150,13 @@ tbody tr:hover td{background:#f9f9f7}
 <script>
 
 const S = {
-  patients: [], orders: [], results: [],
+  patients: [], orders: [], results: [], batches: [],
   currentPage: 'dashboard',
   testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
   _quickOrderPt: null
 };
+
+const BATCH_FACILITIES = ['University of Alberta Hospital (UAH)','Calgary DSC','Foothills Hospital','Red Deer Regional Health Center','Edmonton Base Lab','Calgary Provincial Lab'];
 
 const SYNC_API_BASE = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
 let syncBusy = false;
@@ -442,7 +445,7 @@ function render() {
     dashboard:renderDashboard, patients:renderPatients, orders:renderOrders,
     accession:renderAccession, receive:renderReceive, results:renderResults,
     verify:renderVerify, reports:renderReports, rejected:renderRejected,
-    checklist:renderChecklist,
+    checklist:renderChecklist, batches:renderBatches,
     heme:()=>renderSection('H'), coag:()=>renderSection('O'),
     chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T')
   };
@@ -450,13 +453,13 @@ function render() {
     dashboard:'Dashboard', patients:'Patient Registry', orders:'Order Entry',
     accession:'Specimen Accessioning', receive:'Receive Specimen', results:'Result Entry',
     verify:'Result Verification', reports:'Lab Reports', rejected:'Rejected Specimens',
-    checklist:'Competency Checklist',
+    checklist:'Competency Checklist', batches:'Site Batches',
     heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'Urinalysis', transfusion:'Transfusion Medicine'
   };
   const icons = {
     dashboard:'ti-layout-dashboard', patients:'ti-user', orders:'ti-clipboard-list',
     accession:'ti-barcode', receive:'ti-inbox', results:'ti-microscope', verify:'ti-circle-check',
-    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox',
+    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', batches:'ti-truck',
     heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor'
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
@@ -792,6 +795,193 @@ function renderRejected() {
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
+// --- Site Batches (send-out specimen tracking) ---
+
+function renderBatches() {
+  document.getElementById('topbar-right').innerHTML=
+    '<button class="btn btn-primary" onclick="openNewBatchModal()"><i class="ti ti-plus"></i>New Batch</button>';
+  const list = S.batches.slice().reverse();
+  const rows = list.length ? list.map(b=>{
+    const statusCls = b.status==='Open'?'badge-info':b.status==='In Transit'?'badge-warning':'badge-success';
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:11px">'+b.id.slice(-6)+'</td>'+
+      '<td>'+b.destination+'</td>'+
+      '<td style="font-size:11px">'+b.packagingCondition+'</td>'+
+      '<td>'+b.specimens.length+'</td>'+
+      '<td><span class="badge '+statusCls+'">'+b.status+'</span></td>'+
+      '<td style="font-size:11px;color:#666">'+(b.packagedAt||'--')+'</td>'+
+      '<td style="font-size:11px;color:#666">'+(b.receivedAt||'--')+'</td>'+
+      '<td><button class="btn btn-sm" onclick="openBatchDetail(\''+b.id+'\')"><i class="ti ti-eye"></i>View</button></td></tr>';
+  }).join(''):'<tr><td colspan="8"><div class="empty">No site batches yet -- create one to track specimens sent off-site</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Batch #</th><th>Destination</th><th>Packaging</th><th>Specimens</th><th>Status</th><th>Packaged</th><th>Received</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function openNewBatchModal(pendingOid) {
+  pendingOid = pendingOid || null;
+  const destOptions = BATCH_FACILITIES.map(f=>'<option>'+f+'</option>').join('');
+  const body =
+    '<div style="display:flex;flex-direction:column;gap:10px">'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Destination facility</label>'+
+    '<select id="newBatchDest" style="width:100%;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit">'+destOptions+'</select></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Courier</label>'+
+    '<select id="newBatchCourier" style="width:100%;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit"><option>APL Courier</option><option>Associated Cab</option></select></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Packaging condition</label>'+
+    '<select id="newBatchCondition" style="width:100%;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit">'+
+    '<option>Room temperature</option><option>Chilled</option><option>Frozen</option></select></div>'+
+    '</div>';
+  openModal('New Site Batch', body,
+    [{label:'Cancel',cls:'btn',fn:closeModal},
+     {label:'Create Batch',cls:'btn btn-primary',fn:()=>{
+        const dest=document.getElementById('newBatchDest').value;
+        const courier=document.getElementById('newBatchCourier').value;
+        const condition=document.getElementById('newBatchCondition').value;
+        const b={id:'BATCH-'+Date.now(), destination:dest, courier:courier, packagingCondition:condition,
+          status:'Open', specimens:[], createdAt:today()+' '+nowTime(), packagedAt:null, receivedAt:null};
+        S.batches.push(b);
+        if(pendingOid) _pushSpecimenToBatch(b, pendingOid);
+        openBatchDetail(b.id);
+     }}]);
+}
+
+function addToBatch(oid) {
+  const openBatches = S.batches.filter(b=>b.status==='Open');
+  const options = openBatches.map(b=>
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
+    '<span>'+b.id.slice(-6)+' -- '+b.destination+' ('+b.specimens.length+' item'+(b.specimens.length!==1?'s':'')+')</span>'+
+    '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+b.id+'\',\''+oid+'\');closeModal();"><i class="ti ti-plus"></i>Add here</button></div>'
+  ).join('');
+  openModal('Add to Site Batch',
+    (openBatches.length?options:'<div class="empty">No open batches yet</div>')+
+    '<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="closeModal();openNewBatchModal(\''+oid+'\');"><i class="ti ti-plus"></i>New Batch</button>',
+    [{label:'Cancel',cls:'btn',fn:closeModal}]);
+}
+
+function _pushSpecimenToBatch(b, orderId) {
+  if(b.specimens.some(s=>s.orderId===orderId)) return;
+  const o=S.orders.find(x=>x.id===orderId); if(!o) return;
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  b.specimens.push({orderId:o.id, accession:o.accession||'--', patientName:ptName(pt), panel:o.panel});
+}
+function addSpecimenToBatch(batchId, orderId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  _pushSpecimenToBatch(b, orderId);
+  openBatchDetail(batchId);
+}
+function removeSpecimenFromBatch(batchId, orderId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  b.specimens=b.specimens.filter(s=>s.orderId!==orderId);
+  openBatchDetail(batchId);
+}
+
+function filterBatchSpecimens(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  const inputEl=document.getElementById('batchSearchInput');
+  const resultsEl=document.getElementById('batchSearchResults');
+  if(!inputEl||!resultsEl) return;
+  const q=(inputEl.value||'').toLowerCase().trim();
+  if(!q){ resultsEl.innerHTML=''; return; }
+  const already=new Set(b.specimens.map(s=>s.orderId));
+  const matches=S.orders.filter(o=>o.accession&&!already.has(o.id)).filter(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    const hay=(o.accession+' '+(pt?ptName(pt):'')+' '+o.panel).toLowerCase();
+    return hay.includes(q);
+  }).slice(0,8);
+  resultsEl.innerHTML=matches.length?matches.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
+      '<span><span style="font-family:monospace">'+o.accession+'</span> -- '+ptName(pt)+' -- '+o.panel+' <span class="badge '+statusBadge(o.status)+'" style="margin-left:4px">'+statusLabel(o.status)+'</span></span>'+
+      '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+batchId+'\',\''+o.id+'\')"><i class="ti ti-plus"></i>Add</button></div>';
+  }).join(''):'<div class="empty" style="padding:10px 0">No matching specimens</div>';
+}
+
+function closeAndPackageBatch(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  if(!b.specimens.length){ alert('Add at least one specimen before packaging.'); return; }
+  b.status='In Transit'; b.packagedAt=today()+' '+nowTime();
+  openBatchDetail(batchId);
+}
+function receiveBatch(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  b.status='Received'; b.receivedAt=today()+' '+nowTime();
+  openBatchDetail(batchId);
+}
+
+function openBatchDetail(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  const specRows=b.specimens.length?b.specimens.map(s=>
+    '<tr><td style="font-family:monospace;font-size:11px">'+s.accession+'</td><td>'+s.patientName+'</td><td>'+s.panel+'</td>'+
+    (b.status==='Open'?'<td><button class="btn btn-sm btn-danger" onclick="removeSpecimenFromBatch(\''+b.id+'\',\''+s.orderId+'\')"><i class="ti ti-x"></i></button></td>':'<td></td>')+
+    '</tr>'
+  ).join(''):'<tr><td colspan="4"><div class="empty">No specimens added yet</div></td></tr>';
+  const statusCls=b.status==='Open'?'badge-info':b.status==='In Transit'?'badge-warning':'badge-success';
+  const body=
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666">'+
+    '<span><strong>Destination:</strong> '+b.destination+'</span>'+
+    '<span><strong>Courier:</strong> '+(b.courier||'--')+'</span>'+
+    '<span><strong>Packaging:</strong> '+b.packagingCondition+'</span>'+
+    '<span class="badge '+statusCls+'">'+b.status+'</span>'+
+    '</div>'+
+    '<div style="font-size:11px;color:#666;margin-bottom:10px">Created: '+b.createdAt+
+    (b.packagedAt?' | Packaged: '+b.packagedAt:'')+
+    (b.receivedAt?' | Received: '+b.receivedAt:'')+'</div>'+
+    '<table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th></th></tr></thead><tbody>'+specRows+'</tbody></table>'+
+    (b.status==='Open'?
+      '<div style="margin-top:14px">'+
+      '<label style="font-size:11px;color:#666;display:block;margin-bottom:4px">Add specimen (search accession #, patient, or panel)</label>'+
+      '<input type="text" id="batchSearchInput" placeholder="e.g. RD24H00007 or Smith" style="width:100%;padding:6px 9px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit" oninput="filterBatchSpecimens(\''+b.id+'\')">'+
+      '<div id="batchSearchResults" style="max-height:180px;overflow:auto;margin-top:6px"></div>'+
+      '</div>':'');
+  const buttons=[{label:'Close',cls:'btn',fn:closeModal},
+    {label:'Print Manifest',cls:'btn',fn:()=>{printableBatchManifest(b.id);}}];
+  if(b.status==='Open') buttons.push({label:'Close & Package',cls:'btn btn-primary',fn:()=>{closeAndPackageBatch(b.id);}});
+  if(b.status==='In Transit') buttons.push({label:'Receive',cls:'btn btn-success',fn:()=>{receiveBatch(b.id);}});
+  openModal('Site Batch -- '+b.id.slice(-6), body, buttons);
+}
+
+function printableBatchManifest(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  const rows=b.specimens.length?b.specimens.map(s=>
+    '<tr><td>'+s.accession+'</td><td>'+s.patientName+'</td><td>'+s.panel+'</td></tr>'
+  ).join(''):'<tr><td colspan="3">No specimens</td></tr>';
+  const html=
+    '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'+
+    '<title>Site Batch Manifest -- '+b.id.slice(-6)+'</title>'+
+    '<style>'+
+    '*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:28px;max-width:800px;margin:0 auto}'+
+    'h1{font-size:16px;margin-bottom:2px}'+
+    '.sub{font-size:11px;color:#555;margin-bottom:18px}'+
+    'table{width:100%;border-collapse:collapse;margin-bottom:6px}'+
+    'th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}'+
+    'th{background:#f0f0ee}'+
+    '.demo-table td{border:1px solid #ccc;font-size:12px}'+
+    '.demo-table th{background:#f0f0ee;width:140px}'+
+    '.section-title{font-size:13px;font-weight:600;margin:18px 0 6px}'+
+    '.footer{margin-top:24px;font-size:10px;color:#666;text-align:center}'+
+    '@media print{body{padding:0 16px}}'+
+    '</style></head><body>'+
+    '<h1>Red Deer Polytechnic -- Educational Laboratory</h1>'+
+    '<div class="sub">Site Batch Manifest -- For educational use only, not for clinical decisions</div>'+
+    '<table class="demo-table">'+
+    '<tr><th>Batch ID</th><td>'+b.id+'</td><th>Status</th><td>'+b.status+'</td></tr>'+
+    '<tr><th>Origin</th><td>Red Deer Regional Health Centre (RDRHC) -- Simulated Lab</td><th>Destination</th><td>'+b.destination+'</td></tr>'+
+    '<tr><th>Courier</th><td>'+(b.courier||'--')+'</td><th>Packaging Condition</th><td>'+b.packagingCondition+'</td></tr>'+
+    '<tr><th>Created</th><td>'+b.createdAt+'</td><th>Packaged</th><td>'+(b.packagedAt||'--')+'</td></tr>'+
+    '<tr><th>Received</th><td>'+(b.receivedAt||'--')+'</td><th></th><td></td></tr>'+
+    '</table>'+
+    '<div class="section-title">Specimens in this batch ('+b.specimens.length+')</div>'+
+    '<table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\\/script>'+
+    '</body></html>';
+  const w=window.open('','_blank');
+  if(!w){ alert('Please allow pop-ups to print the batch manifest.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 function renderResults() {
   document.getElementById('topbar-right').innerHTML='';
   const ready=S.orders.filter(o=>o.status==='received');
@@ -1068,6 +1258,7 @@ function renderVerify() {
       '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
       '<td style="display:flex;gap:5px">'+
       '<button class="btn btn-sm" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Review</button>'+
+      '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button>'+
       '<button class="btn btn-sm btn-success" onclick="verifyOrder(\''+o.id+'\')"><i class="ti ti-check"></i>Verify</button></td></tr>';
   }).join(''):'<tr><td colspan="6"><div class="empty">No results awaiting verification</div></td></tr>';
   document.getElementById('content').innerHTML=
