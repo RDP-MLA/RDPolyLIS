@@ -1199,7 +1199,7 @@ function enterResults(oid) {
       if(hasCrit) alert('CRITICAL VALUE(S) detected. Notify physician immediately and document callback.');
       if(flags.length) alert('REFERRED TO PATHOLOGIST FOR REVIEW: '+flags.join('; '));
       if(o.panelKey==='UA' && o.microOrderId){
-        enterResults(o.microOrderId);
+        nav('results');
       } else {
         nav('verify');
       }
