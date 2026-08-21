@@ -118,6 +118,7 @@ tbody tr:hover td{background:#f9f9f7}
       <div class="nav-item" onclick="nav('chem')" id="nav-chem"><i class="ti ti-flask"></i>Chemistry</div>
       <div class="nav-item" onclick="nav('ua')" id="nav-ua"><i class="ti ti-test-pipe"></i>Urinalysis</div>
       <div class="nav-item" onclick="nav('transfusion')" id="nav-transfusion"><i class="ti ti-heart-rate-monitor"></i>Transfusion</div>
+      <div class="nav-item" onclick="nav('micro')" id="nav-micro"><i class="ti ti-virus"></i>Microbiology / POCT</div>
     </div>
     <div class="nav-group">
       <div class="nav-label">Tools</div>
@@ -291,6 +292,7 @@ const REF = {
   MCHC:{name:'MCHC',unit:'g/L',lo:315,hi:360,critLo:null,critHi:null,peds:'Similar to adult'},
   RDW:{name:'RDW',unit:'%',lo:11.5,hi:14.5,critLo:null,critHi:null,peds:'Similar to adult'},
   Plt:{name:'Platelets',unit:'x10^9/L',lo:150,hi:400,critLo:50,critHi:1000,peds:'Similar to adult'},
+  Retic:{name:'Reticulocyte Count',unit:'%',lo:0.5,hi:2.5,critLo:null,critHi:null,peds:'Neonates 3.0-6.0'},
   Neut:{name:'Neutrophils',unit:'%',lo:40,hi:70,critLo:null,critHi:null,peds:'Neonates higher',diffPct:true},
   Lymph:{name:'Lymphocytes',unit:'%',lo:20,hi:40,critLo:null,critHi:null,peds:'Children up to 60',diffPct:true},
   Mono:{name:'Monocytes',unit:'%',lo:2,hi:8,critLo:null,critHi:null,peds:'Similar to adult',diffPct:true},
@@ -303,6 +305,7 @@ const REF = {
   aPTT:{name:'aPTT',unit:'s',lo:25,hi:38,critLo:null,critHi:80,peds:'Similar to adult'},
   Fibrinogen:{name:'Fibrinogen',unit:'g/L',lo:2.0,hi:4.0,critLo:1.0,critHi:null,peds:'Similar to adult'},
   TT:{name:'Thrombin Time',unit:'s',lo:10,hi:15,critLo:null,critHi:null,peds:'Similar to adult'},
+  DDimer:{name:'D-Dimer',unit:'ug/L FEU',lo:0,hi:500,critLo:null,critHi:null,peds:'Similar to adult'},
   Na:{name:'Sodium',unit:'mmol/L',lo:136,hi:145,critLo:120,critHi:160,peds:'Similar to adult'},
   K:{name:'Potassium',unit:'mmol/L',lo:3.5,hi:5.0,critLo:2.8,critHi:6.5,peds:'Neonates 3.7-5.9'},
   Cl:{name:'Chloride',unit:'mmol/L',lo:98,hi:107,critLo:80,critHi:120,peds:'Similar to adult'},
@@ -323,6 +326,23 @@ const REF = {
   CK:{name:'CK',unit:'U/L',lo:40,hi:320,critLo:null,critHi:null,femLo:25,femHi:200,peds:'Similar to adult'},
   Trop:{name:'Troponin I',unit:'ng/L',lo:0,hi:34,critLo:null,critHi:null,peds:'Similar to adult'},
   TSH:{name:'TSH',unit:'mIU/L',lo:0.4,hi:4.0,critLo:null,critHi:null,peds:'Neonates 1-39 first week'},
+  HbA1c:{name:'Hemoglobin A1c',unit:'%',lo:4.0,hi:5.6,critLo:null,critHi:null,peds:'Similar to adult'},
+  UricAcid:{name:'Uric Acid',unit:'umol/L',lo:202,hi:416,critLo:null,critHi:null,femLo:143,femHi:339,peds:'Similar to adult'},
+  Amylase:{name:'Amylase',unit:'U/L',lo:28,hi:100,critLo:null,critHi:null,peds:'Similar to adult'},
+  Lipase:{name:'Lipase',unit:'U/L',lo:13,hi:60,critLo:null,critHi:null,peds:'Similar to adult'},
+  LDH:{name:'LDH',unit:'U/L',lo:120,hi:246,critLo:null,critHi:null,peds:'Children higher'},
+  CRP:{name:'C-Reactive Protein',unit:'mg/L',lo:0,hi:5,critLo:null,critHi:null,peds:'Similar to adult'},
+  Iron:{name:'Iron',unit:'umol/L',lo:9,hi:30,critLo:null,critHi:null,femLo:7,femHi:27,peds:'Similar to adult'},
+  TIBC:{name:'TIBC',unit:'umol/L',lo:45,hi:72,critLo:null,critHi:null,peds:'Similar to adult'},
+  Ferritin:{name:'Ferritin',unit:'ug/L',lo:30,hi:300,critLo:null,critHi:null,femLo:15,femHi:200,peds:'Similar to adult'},
+  B12:{name:'Vitamin B12',unit:'pmol/L',lo:148,hi:616,critLo:null,critHi:null,peds:'Similar to adult'},
+  Folate:{name:'Folate',unit:'nmol/L',lo:14,hi:34,critLo:null,critHi:null,peds:'Similar to adult'},
+  Chol:{name:'Total Cholesterol',unit:'mmol/L',lo:0,hi:5.2,critLo:null,critHi:null,peds:'Similar to adult'},
+  Trig:{name:'Triglycerides',unit:'mmol/L',lo:0,hi:1.7,critLo:null,critHi:null,peds:'Similar to adult'},
+  HDL:{name:'HDL Cholesterol',unit:'mmol/L',lo:1.0,hi:2.2,critLo:null,critHi:null,femLo:1.3,femHi:2.2,peds:'Similar to adult'},
+  LDL:{name:'LDL Cholesterol',unit:'mmol/L',lo:0,hi:3.4,critLo:null,critHi:null,peds:'Similar to adult'},
+  IgA:{name:'Immunoglobulin A',unit:'g/L',lo:0.7,hi:4.0,critLo:null,critHi:null,peds:'Children lower'},
+  IgE:{name:'Immunoglobulin E',unit:'kIU/L',lo:0,hi:100,critLo:null,critHi:null,peds:'Children lower'},
   UA_Color:{name:'Color',unit:'',qualitative:true,reflex:true,
     options:['Colorless','Yellow','Amber','Orange*','Red*','Brown*','Black*','Other*'],peds:'Similar'},
   UA_Clarity:{name:'Clarity',unit:'',qualitative:true,reflex:true,
@@ -378,7 +398,13 @@ const REF = {
   Ab_Sc:{name:'Antibody Screen',unit:'',qualitative:true,options:['Negative','Positive'],peds:''},
   XM:{name:'Crossmatch',unit:'',qualitative:true,options:['Compatible','Incompatible','N/A'],peds:''},
   DAT:{name:'DAT',unit:'',qualitative:true,options:['Negative','Positive (IgG)','Positive (C3d)','Positive (Both)'],peds:''},
-  Hgb_T:{name:'Hgb pre-transfusion',unit:'g/L',lo:120,hi:175,critLo:60,critHi:null,peds:'See Hgb'}
+  Hgb_T:{name:'Hgb pre-transfusion',unit:'g/L',lo:120,hi:175,critLo:60,critHi:null,peds:'See Hgb'},
+  MonoTest:{name:'Mono Test (Heterophile Ab)',unit:'',qualitative:true,reflex:false,options:['Negative','Positive'],peds:'Often false-negative under age 4'},
+  Preg:{name:'Pregnancy Test (Urine hCG)',unit:'',qualitative:true,reflex:false,options:['Negative','Positive'],peds:''},
+  CovidAg:{name:'COVID-19 Rapid Antigen',unit:'',qualitative:true,reflex:false,options:['Negative','Positive','Invalid'],peds:'Similar to adult'},
+  UrineCx:{name:'Urine Culture',unit:'',qualitative:true,reflex:false,
+    options:['No growth','<10^4 CFU/mL (likely contaminant)','10^4-10^5 CFU/mL (indeterminate, correlate clinically)','\u2265 10^5 CFU/mL (significant growth)'],peds:''},
+  UrineCxOrganism:{name:'Organism / Sensitivity Notes',unit:'',freetext:true,reflex:false,peds:''}
 };
 
 const PANELS = {
@@ -386,18 +412,32 @@ const PANELS = {
   CBCDiff:{name:'CBC + Differential',dept:'H',tests:['WBC','RBC','Hgb','Hct','MCV','MCH','MCHC','RDW','Plt','Neut','Lymph','Mono','Eos','Baso','PltEst','DiffComment'],tube:'EDTA (lavender)'},
   PT_INR:{name:'PT/INR',dept:'O',tests:['PT','INR'],tube:'Citrate (blue)'},
   aPTT:{name:'aPTT',dept:'O',tests:['aPTT'],tube:'Citrate (blue)'},
-  CoagFull:{name:'Full Coagulation Panel',dept:'O',tests:['PT','INR','aPTT','Fibrinogen','TT'],tube:'Citrate (blue)'},
+  DDimer:{name:'D-Dimer',dept:'O',tests:['DDimer'],tube:'Citrate (blue)'},
+  Retic:{name:'Reticulocyte Count',dept:'H',tests:['Retic'],tube:'EDTA (lavender)'},
   BMP:{name:'Basic Metabolic Panel',dept:'C',tests:['Na','K','Cl','CO2','BUN','Cr','Gluc','Ca'],tube:'SST (gold) or Li-Hep'},
   CMP:{name:'Comprehensive Metabolic Panel',dept:'C',tests:['Na','K','Cl','CO2','BUN','Cr','Gluc','Ca','ALT','AST','ALP','GGT','TBili','Alb','TP'],tube:'SST (gold) or Li-Hep'},
   LFT:{name:'Liver Function Tests',dept:'C',tests:['ALT','AST','ALP','GGT','TBili','Alb','TP'],tube:'SST (gold)'},
   Electrolytes:{name:'Electrolytes',dept:'C',tests:['Na','K','Cl','CO2'],tube:'SST or Li-Hep'},
   Cardiac:{name:'Cardiac Panel',dept:'C',tests:['Trop','CK'],tube:'SST (gold)'},
   Thyroid:{name:'Thyroid TSH',dept:'C',tests:['TSH'],tube:'SST (gold)'},
+  HbA1c:{name:'Hemoglobin A1c',dept:'C',tests:['HbA1c'],tube:'EDTA (lavender) or SST'},
+  Lipid:{name:'Lipid Panel',dept:'C',tests:['Chol','Trig','HDL','LDL'],tube:'SST (gold), fasting preferred'},
+  IronStudies:{name:'Iron Studies',dept:'C',tests:['Iron','TIBC','Ferritin'],tube:'SST (gold)'},
+  B12Folate:{name:'Vitamin B12 / Folate',dept:'C',tests:['B12','Folate'],tube:'SST (gold)'},
+  CRP_Panel:{name:'CRP',dept:'C',tests:['CRP'],tube:'SST (gold)'},
+  UricAcidPanel:{name:'Uric Acid',dept:'C',tests:['UricAcid'],tube:'SST (gold)'},
+  AmylaseLipase:{name:'Amylase & Lipase',dept:'C',tests:['Amylase','Lipase'],tube:'SST (gold)'},
+  LDHPanel:{name:'LDH',dept:'C',tests:['LDH'],tube:'SST (gold)'},
+  Immunoglobulins:{name:'IgA / IgE',dept:'C',tests:['IgA','IgE'],tube:'SST (gold)'},
   UA:{name:'UA',dept:'U',tests:['UA_Color','UA_Clarity','UA_SG','UA_pH2','UA_Prot2','UA_Gluc2','UA_Ket2','UA_Blood2','UA_Nit2','UA_Leuk2','UA_ReflexNote'],tube:'Urine cup (60 mL sterile)'},
   UAMicro:{name:'UA-MICRO',dept:'U',tests:['UAM_WBC','UAM_RBC','UAM_Epi','UAM_RenalEpi','UAM_WBCClumps','UAM_Casts','UAM_CrystalsAcid','UAM_CrystalsAlkaline','UAM_Bacteria','UAM_Yeast','UAM_Sperm','UAM_Trich','UAM_Entero','UAM_FatGlobules','UAM_OvalFatBodies'],tube:'Urine cup (same specimen, centrifuged)'},
   TypeScreen:{name:'Type and Screen',dept:'T',tests:['ABO','Rh','Ab_Sc'],tube:'EDTA (pink transfusion)'},
   TypeXM:{name:'Type and Crossmatch',dept:'T',tests:['ABO','Rh','Ab_Sc','XM'],tube:'EDTA (pink transfusion)'},
-  DAT_Test:{name:'Direct Antiglobulin Test',dept:'T',tests:['DAT'],tube:'EDTA (pink transfusion)'}
+  DAT_Test:{name:'Direct Antiglobulin Test',dept:'T',tests:['DAT'],tube:'EDTA (pink transfusion)'},
+  MonoSpot:{name:'Mono Test',dept:'H',tests:['MonoTest'],tube:'SST (gold) or EDTA'},
+  PregTest:{name:'Pregnancy Test (Urine hCG)',dept:'M',tests:['Preg'],tube:'Urine cup (random)'},
+  CovidRapid:{name:'COVID-19 Rapid Antigen',dept:'M',tests:['CovidAg'],tube:'Nasal/nasopharyngeal swab'},
+  UrineCulture:{name:'Urine Culture',dept:'M',tests:['UrineCx','UrineCxOrganism'],tube:'Sterile urine cup (clean-catch or catheter)'}
 };
 
 const REJECTION_REASONS = [
@@ -484,20 +524,23 @@ function render() {
     verify:renderVerify, reports:renderReports, rejected:renderRejected,
     checklist:renderChecklist, batches:renderBatches,
     heme:()=>renderSection('H'), coag:()=>renderSection('O'),
-    chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T')
+    chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T'),
+    micro:()=>renderSection('M')
   };
   const titles = {
     dashboard:'Dashboard', patients:'Patient Registry', orders:'Order Entry',
     accession:'Specimen Accessioning', receive:'Receive Specimen', results:'Result Entry',
     verify:'Result Verification', reports:'Lab Reports', rejected:'Rejected Specimens',
     checklist:'Competency Checklist', batches:'Site Batches',
-    heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'Urinalysis', transfusion:'Transfusion Medicine'
+    heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'Urinalysis', transfusion:'Transfusion Medicine',
+    micro:'Microbiology / POCT'
   };
   const icons = {
     dashboard:'ti-layout-dashboard', patients:'ti-user', orders:'ti-clipboard-list',
     accession:'ti-barcode', receive:'ti-inbox', results:'ti-microscope', verify:'ti-circle-check',
     reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', batches:'ti-truck',
-    heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor'
+    heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor',
+    micro:'ti-virus'
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
   updateBatchNavBadge();
@@ -669,9 +712,9 @@ function renderOrders() {
   if(S._quickOrderPt){orderPtId=S._quickOrderPt;S._quickOrderPt=null;}
   document.getElementById('topbar-right').innerHTML='';
   const pt=S.patients.find(p=>p.id===orderPtId);
-  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine'};
-  const panelSections=['H','O','C','U','T'].map(dept=>{
-    const panels=Object.entries(PANELS).filter(([k,v])=>v.dept===dept);
+  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine',M:'Microbiology / POCT'};
+  const panelSections=['H','O','C','U','T','M'].map(dept=>{
+    const panels=Object.entries(PANELS).filter(([k,v])=>v.dept===dept && k!=='UAMicro');
     return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:500;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">'+deptNames[dept]+'</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
       panels.map(([k,v])=>'<span class="chip '+(orderPanels.includes(k)?'selected':'')+'" onclick="togglePanel(\''+k+'\')">'+v.name+'</span>').join('')+
@@ -732,7 +775,7 @@ function accessionOrder(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
   const acc=genAcc(o.dept);
-  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion'};
+  const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion',M:'Microbiology/POCT'};
   openModal('Accession Specimen',
     '<div class="grid2" style="margin-bottom:12px">'+
     '<div><div class="stat-label">Patient</div><div><strong>'+ptName(pt)+'</strong></div></div>'+
@@ -1508,7 +1551,7 @@ function deleteOrder(oid) {
 }
 
 function renderSection(dept) {
-  const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine'};
+  const names={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion Medicine',M:'Microbiology / POCT'};
   document.getElementById('topbar-right').innerHTML='';
   const orders=S.orders.filter(o=>o.dept===dept);
   const rows=orders.length?orders.map(o=>{
