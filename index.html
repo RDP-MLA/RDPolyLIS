@@ -1358,7 +1358,7 @@ function addUAMicroOrder(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
   if(o._uaMicroAdded){ alert('A UA-MICRO order was already added for this specimen ('+o._uaMicroAdded+').'); return; }
   const panel=PANELS.UAMicro;
-  const acc=genAcc('U');
+  const acc=o.accession;
   const newOrder={
     id:'ORD-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
     patientId:o.patientId, panel:panel.name, panelKey:'UAMicro', dept:panel.dept,
@@ -1367,12 +1367,27 @@ function addUAMicroOrder(oid) {
     date:o.date, status:'received', ts:Date.now(), accession:acc,
     collectionDate:o.collectionDate, collectionTime:o.collectionTime,
     collectorId:o.collectorId, collectorName:o.collectorName,
-    receiptCondition:o.receiptCondition, receivedAt:nowTime()
+    receiptCondition:o.receiptCondition, receivedAt:nowTime(),
+    parentOrderId:o.id
   };
   S.orders.push(newOrder);
   o._uaMicroAdded=acc;
+  o.microOrderId=newOrder.id;
   checkReflex(oid);
-  alert('UA-MICRO order added (accession '+acc+'). Same centrifuged specimen carried forward -- it is ready for result entry now.');
+  alert('UA-MICRO order added under the same accession ('+acc+'). Same centrifuged specimen carried forward -- it is ready for result entry now. UA and UA-MICRO will verify and report together as a single result.');
+}
+// Returns the linked {uaOrder, microOrder} pair if oid belongs to a UA order with a
+// reflex UA-MICRO attached, or a UA-MICRO order with its parent UA -- otherwise both null.
+function getUALinkedPair(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  if(!o) return {uaOrder:null, microOrder:null};
+  if(o.panelKey==='UA' && o.microOrderId){
+    return {uaOrder:o, microOrder:S.orders.find(x=>x.id===o.microOrderId)||null};
+  }
+  if(o.panelKey==='UAMicro' && o.parentOrderId){
+    return {uaOrder:S.orders.find(x=>x.id===o.parentOrderId)||null, microOrder:o};
+  }
+  return {uaOrder:null, microOrder:null};
 }
 function liveFlag(tk,sex) {
   const el=document.getElementById('res_'+tk);
@@ -1385,31 +1400,79 @@ function liveFlag(tk,sex) {
 function renderVerify() {
   document.getElementById('topbar-right').innerHTML='';
   const ready=S.orders.filter(o=>o.status==='resulted');
-  const rows=ready.length?ready.map(o=>{
-    const pt=S.patients.find(p=>p.id===o.patientId);
-    const res=S.results.filter(r=>r.orderId===o.id);
-    const hasCrit=res.some(r=>r.critical);
-    return '<tr '+(hasCrit?'class="crit-row"':'')+'>'+
-      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
-      '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
-      '<td style="font-size:11px;color:#666">'+res.length+' result'+(res.length!==1?'s':'')+'</td>'+
-      '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
-      '<td style="display:flex;gap:5px">'+
-      '<button class="btn btn-sm" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Review</button>'+
-      '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button>'+
-      '<button class="btn btn-sm btn-success" onclick="verifyOrder(\''+o.id+'\')"><i class="ti ti-check"></i>Verify</button></td></tr>';
-  }).join(''):'<tr><td colspan="6"><div class="empty">No results awaiting verification</div></td></tr>';
+  const seen=new Set();
+  const rowsArr=[];
+  ready.forEach(o=>{
+    if(seen.has(o.id)) return;
+    const link=getUALinkedPair(o.id);
+    if(link.uaOrder && link.microOrder){
+      seen.add(link.uaOrder.id); seen.add(link.microOrder.id);
+      const bothResulted = link.uaOrder.status==='resulted' && link.microOrder.status==='resulted';
+      if(bothResulted){ rowsArr.push(buildCombinedVerifyRow(link.uaOrder, link.microOrder)); }
+      else { rowsArr.push(buildPendingVerifyRow(o, o.panelKey==='UA'?'UA-MICRO':'UA')); }
+      return;
+    }
+    seen.add(o.id);
+    rowsArr.push(buildVerifyRow(o));
+  });
+  const rows=rowsArr.length?rowsArr.join(''):'<tr><td colspan="6"><div class="empty">No results awaiting verification</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
     '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Results</th><th>Critical?</th><th></th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+function buildVerifyRow(o) {
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===o.id);
+  const hasCrit=res.some(r=>r.critical);
+  return '<tr '+(hasCrit?'class="crit-row"':'')+'>'+
+    '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+    '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
+    '<td style="font-size:11px;color:#666">'+res.length+' result'+(res.length!==1?'s':'')+'</td>'+
+    '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
+    '<td style="display:flex;gap:5px">'+
+    '<button class="btn btn-sm" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Review</button>'+
+    '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button>'+
+    '<button class="btn btn-sm btn-success" onclick="verifyOrder(\''+o.id+'\')"><i class="ti ti-check"></i>Verify</button></td></tr>';
+}
+function buildPendingVerifyRow(o, awaiting) {
+  const pt=S.patients.find(p=>p.id===o.patientId);
+  const res=S.results.filter(r=>r.orderId===o.id);
+  const hasCrit=res.some(r=>r.critical);
+  return '<tr '+(hasCrit?'class="crit-row"':'')+'>'+
+    '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
+    '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
+    '<td style="font-size:11px;color:#666">'+res.length+' result'+(res.length!==1?'s':'')+'</td>'+
+    '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
+    '<td style="display:flex;gap:5px;align-items:center">'+
+    '<span class="badge badge-warning">Awaiting '+awaiting+'</span>'+
+    '<button class="btn btn-sm" onclick="reviewResults(\''+o.id+'\')"><i class="ti ti-eye"></i>Review</button></td></tr>';
+}
+function buildCombinedVerifyRow(uaOrder, microOrder) {
+  const pt=S.patients.find(p=>p.id===uaOrder.patientId);
+  const res=[...S.results.filter(r=>r.orderId===uaOrder.id), ...S.results.filter(r=>r.orderId===microOrder.id)];
+  const hasCrit=res.some(r=>r.critical);
+  return '<tr '+(hasCrit?'class="crit-row"':'')+'>'+
+    '<td style="font-family:monospace;font-size:10px">'+uaOrder.accession+'</td>'+
+    '<td><strong>'+ptName(pt)+'</strong></td><td>UA + UA-MICRO</td>'+
+    '<td style="font-size:11px;color:#666">'+res.length+' result'+(res.length!==1?'s':'')+'</td>'+
+    '<td>'+(hasCrit?'<span class="badge badge-danger">Critical</span>':'<span class="badge badge-success">No</span>')+'</td>'+
+    '<td style="display:flex;gap:5px">'+
+    '<button class="btn btn-sm" onclick="reviewResults(\''+uaOrder.id+'\')"><i class="ti ti-eye"></i>Review</button>'+
+    '<button class="btn btn-sm" onclick="addToBatch(\''+uaOrder.id+'\')"><i class="ti ti-truck"></i>Batch</button>'+
+    '<button class="btn btn-sm btn-success" onclick="verifyOrder(\''+uaOrder.id+'\')"><i class="ti ti-check"></i>Verify Both</button></td></tr>';
+}
 
 function reviewResults(oid) {
-  const o=S.orders.find(x=>x.id===oid);
+  const link=getUALinkedPair(oid);
+  const combined = !!(link.uaOrder && link.microOrder);
+  const o = combined ? link.uaOrder : S.orders.find(x=>x.id===oid);
   const pt=S.patients.find(p=>p.id===o.patientId);
-  const res=S.results.filter(r=>r.orderId===oid);
+  const res = combined
+    ? [...S.results.filter(r=>r.orderId===link.uaOrder.id), ...S.results.filter(r=>r.orderId===link.microOrder.id)]
+    : S.results.filter(r=>r.orderId===oid);
   const sex=pt?pt.sex:'M';
+  const bothResulted = combined && link.uaOrder.status==='resulted' && link.microOrder.status==='resulted';
   const rows=res.map(r=>{
     const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,sex);
     const rs=refSex(sex); let lo=ref?ref.lo:null, hi=ref?ref.hi:null;
@@ -1421,14 +1484,31 @@ function reviewResults(oid) {
       '<td><span class="'+fl.cls+'">'+(fl.flag||'--')+'</span></td>'+
       '<td style="font-size:11px;color:#666">'+(ref&&!ref.qualitative&&!ref.freetext?lo+'--'+hi:'--')+'</td></tr>';
   }).join('');
-  openModal('Review -- '+o.accession,
+  const acc = o.accession;
+  const panelLabel = combined ? 'UA + UA-MICRO' : o.panel;
+  const pendingNote = combined && !bothResulted
+    ? '<div class="warn-box" style="margin-bottom:10px">UA and UA-MICRO report together -- verification is disabled until both are resulted.</div>' : '';
+  openModal('Review -- '+acc,
+    pendingNote+
     '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666">'+
-    '<strong>'+ptName(pt)+'</strong><span>'+sexLabel(sex)+', Age '+(pt?age(pt.dob):'?')+'</span><span>'+o.panel+'</span></div>'+
+    '<strong>'+ptName(pt)+'</strong><span>'+sexLabel(sex)+', Age '+(pt?age(pt.dob):'?')+'</span><span>'+panelLabel+'</span></div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Unit</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>',
     [{label:'Close',cls:'btn',fn:closeModal},
-     {label:'Verify and Release',cls:'btn btn-success',fn:()=>{verifyOrder(oid);closeModal();}}]);
+     ...((!combined||bothResulted)?[{label:'Verify and Release',cls:'btn btn-success',fn:()=>{verifyOrder(o.id);closeModal();}}]:[])]);
 }
 function verifyOrder(oid) {
+  const link=getUALinkedPair(oid);
+  if(link.uaOrder && link.microOrder){
+    if(link.uaOrder.status!=='resulted' || link.microOrder.status!=='resulted'){
+      alert('UA and UA-MICRO report together as one result -- both must be resulted before this can be verified and released.');
+      return;
+    }
+    const ts=nowTime();
+    link.uaOrder.status='verified'; link.uaOrder.verifiedAt=ts;
+    link.microOrder.status='verified'; link.microOrder.verifiedAt=ts;
+    closeModal(); nav('reports');
+    return;
+  }
   const o=S.orders.find(x=>x.id===oid);
   if(o){o.status='verified';o.verifiedAt=nowTime();}
   closeModal(); nav('reports');
@@ -1436,12 +1516,16 @@ function verifyOrder(oid) {
 
 function renderReports() {
   document.getElementById('topbar-right').innerHTML='';
-  const verified=S.orders.filter(o=>o.status==='verified');
+  const verified=S.orders.filter(o=>o.status==='verified' && o.panelKey!=='UAMicro');
   const rows=verified.length?verified.map(o=>{
     const pt=S.patients.find(p=>p.id===o.patientId);
+    const link=getUALinkedPair(o.id);
+    const combined=!!(link.uaOrder && link.microOrder);
+    const acc=o.accession;
+    const panelLabel=combined?'UA + UA-MICRO':o.panel;
     return '<tr>'+
-      '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
-      '<td><strong>'+ptName(pt)+'</strong></td><td>'+o.panel+'</td>'+
+      '<td style="font-family:monospace;font-size:10px">'+acc+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong></td><td>'+panelLabel+'</td>'+
       '<td style="font-family:monospace;font-size:11px">'+(o.collectorId||'--')+'</td>'+
       '<td style="font-size:11px;color:#666">'+(o.verifiedAt||'--')+'</td>'+
       '<td><button class="btn btn-sm btn-primary" onclick="showReport(\''+o.id+'\')"><i class="ti ti-file-analytics"></i>View</button></td></tr>';
@@ -1453,9 +1537,13 @@ function renderReports() {
 }
 
 function showReport(oid) {
-  const o=S.orders.find(x=>x.id===oid);
+  const link=getUALinkedPair(oid);
+  const combined=!!(link.uaOrder && link.microOrder);
+  const o = combined ? link.uaOrder : S.orders.find(x=>x.id===oid);
   const pt=S.patients.find(p=>p.id===o.patientId);
-  const res=S.results.filter(r=>r.orderId===oid);
+  const res = combined
+    ? [...S.results.filter(r=>r.orderId===link.uaOrder.id), ...S.results.filter(r=>r.orderId===link.microOrder.id)]
+    : S.results.filter(r=>r.orderId===oid);
   const sex=pt?pt.sex:'M';
   const rows=res.map(r=>{
     const ref=REF[r.testKey]; const fl=getFlag(r.testKey,r.value,sex);
@@ -1470,11 +1558,14 @@ function showReport(oid) {
       '<td><span class="'+fl.cls+'">'+(fl.flag||'')+'</span>'+(r.critical?'<span class="badge badge-danger" style="margin-left:4px">CRITICAL</span>':'')+'</td>'+
       '<td style="font-size:10px;color:#666">'+refStr+pedsNote+'</td></tr>';
   }).join('');
-  openModal('Lab Report -- '+o.accession,
+  const acc = o.accession;
+  const pathFlagged = combined ? (o.pathFlagged || link.microOrder.pathFlagged) : o.pathFlagged;
+  const pathFlagReasons = combined ? [...(o.pathFlagReasons||[]), ...(link.microOrder.pathFlagReasons||[])] : (o.pathFlagReasons||[]);
+  openModal('Lab Report -- '+acc,
     '<div style="font-size:11px;background:#f9f9f7;border-radius:8px;padding:14px;margin-bottom:14px">'+
     '<div style="font-size:13px;font-weight:500;margin-bottom:8px">RED DEER POLYTECHNIC -- EDUCATIONAL LABORATORY</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'+
-    '<div>Patient: <strong>'+ptName(pt)+'</strong></div><div>Accession #: <strong>'+o.accession+'</strong></div>'+
+    '<div>Patient: <strong>'+ptName(pt)+'</strong></div><div>Accession #: <strong>'+acc+'</strong></div>'+
     '<div>DOB: '+(pt?pt.dob:'?')+' | Sex: '+sexLabel(sex)+' | Age: '+(pt?age(pt.dob):'?')+'</div><div>Order date: '+o.date+'</div>'+
     '<div>Health #: '+(pt?pt.healthNum||'--':'?')+'</div><div>Verified: '+(o.verifiedAt||'--')+'</div>'+
     '<div>Physician: '+(pt?pt.physician||'--':'?')+'</div><div>Ward: '+(pt?pt.ward||'--':'?')+'</div>'+
@@ -1482,16 +1573,20 @@ function showReport(oid) {
     '<div>Collection: '+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</div>'+
     '<div>Indication: '+(o.indication||'--')+'</div><div>Priority: '+o.priority+'</div></div></div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th>Flag</th><th>Reference Range</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    (o.pathFlagged?'<div class="danger-box" style="margin-top:12px"><i class="ti ti-alert-triangle"></i> <strong>REFERRED TO PATHOLOGIST FOR REVIEW</strong> -- '+(o.pathFlagReasons||[]).join('; ')+'</div>':'')+
+    (pathFlagged?'<div class="danger-box" style="margin-top:12px"><i class="ti ti-alert-triangle"></i> <strong>REFERRED TO PATHOLOGIST FOR REVIEW</strong> -- '+pathFlagReasons.join('; ')+'</div>':'')+
     '<div style="margin-top:12px;font-size:10px;color:#666">FOR EDUCATIONAL USE ONLY -- NOT FOR CLINICAL DECISIONS</div>',
     [{label:'Close',cls:'btn',fn:closeModal},
-     ...(o.panelKey==='UA'||o.panelKey==='UAMicro'?[{label:'Download PDF',cls:'btn btn-success',fn:()=>{printableReport(oid);}}]:[])]);
+     ...(o.panelKey==='UA'||o.panelKey==='UAMicro'?[{label:'Download PDF',cls:'btn btn-success',fn:()=>{printableReport(o.id);}}]:[])]);
 }
 
 function printableReport(oid) {
-  const o=S.orders.find(x=>x.id===oid);
+  const link=getUALinkedPair(oid);
+  const combined=!!(link.uaOrder && link.microOrder);
+  const o = combined ? link.uaOrder : S.orders.find(x=>x.id===oid);
   const pt=S.patients.find(p=>p.id===o.patientId);
-  const res=S.results.filter(r=>r.orderId===oid);
+  const res = combined
+    ? [...S.results.filter(r=>r.orderId===link.uaOrder.id), ...S.results.filter(r=>r.orderId===link.microOrder.id)]
+    : S.results.filter(r=>r.orderId===oid);
   const sex=pt?pt.sex:'M';
   const rows=res.map(r=>{
     const ref=REF[r.testKey];
@@ -1503,9 +1598,13 @@ function printableReport(oid) {
       '<td>'+(ref?ref.unit:'')+'</td>'+
       '<td>'+flagStar+'</td></tr>';
   }).join('');
+  const acc = o.accession;
+  const panelLabel = combined ? 'UA + UA-MICRO' : o.panel;
+  const pathFlagged = combined ? (o.pathFlagged || link.microOrder.pathFlagged) : o.pathFlagged;
+  const pathFlagReasons = combined ? [...(o.pathFlagReasons||[]), ...(link.microOrder.pathFlagReasons||[])] : (o.pathFlagReasons||[]);
   const html =
     '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'+
-    '<title>UA Report -- '+(o.accession||'')+'</title>'+
+    '<title>UA Report -- '+acc+'</title>'+
     '<style>'+
     '*{box-sizing:border-box;margin:0;padding:0}'+
     'body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:28px;max-width:800px;margin:0 auto}'+
@@ -1522,18 +1621,18 @@ function printableReport(oid) {
     '@media print{body{padding:0 16px}}'+
     '</style></head><body>'+
     '<h1>Red Deer Polytechnic -- Educational Laboratory</h1>'+
-    '<div class="sub">'+o.panel+' Report -- For educational use only, not for clinical decisions</div>'+
+    '<div class="sub">'+panelLabel+' Report -- For educational use only, not for clinical decisions</div>'+
     '<table class="demo-table">'+
-    '<tr><th>Patient</th><td>'+ptName(pt)+'</td><th>Accession #</th><td>'+(o.accession||'--')+'</td></tr>'+
+    '<tr><th>Patient</th><td>'+ptName(pt)+'</td><th>Accession #</th><td>'+acc+'</td></tr>'+
     '<tr><th>DOB</th><td>'+(pt?pt.dob:'?')+'</td><th>Sex</th><td>'+sexLabel(sex)+'</td></tr>'+
     '<tr><th>Age</th><td>'+(pt?age(pt.dob):'?')+'</td><th>Health #</th><td>'+(pt?pt.healthNum||'--':'?')+'</td></tr>'+
     '<tr><th>Physician</th><td>'+(pt?pt.physician||'--':'?')+'</td><th>Ward</th><td>'+(pt?pt.ward||'--':'?')+'</td></tr>'+
     '<tr><th>Collector ID</th><td>'+(o.collectorId||'--')+'</td><th>Collection</th><td>'+(o.collectionDate||'?')+' '+(o.collectionTime||'')+'</td></tr>'+
     '<tr><th>Order date</th><td>'+o.date+'</td><th>Verified</th><td>'+(o.verifiedAt||'--')+'</td></tr>'+
     '</table>'+
-    '<div class="section-title">'+o.panel+' Results</div>'+
+    '<div class="section-title">'+panelLabel+' Results</div>'+
     '<table><thead><tr><th>Analyte</th><th>Result</th><th>Units</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    (o.pathFlagged?'<div style="margin-top:14px;padding:10px 12px;border:2px solid #a32d2d;border-radius:6px;background:#fcebeb;color:#a32d2d;font-weight:600;font-size:12px">REFERRED TO PATHOLOGIST FOR REVIEW -- '+(o.pathFlagReasons||[]).join('; ')+'</div>':'')+
+    (pathFlagged?'<div style="margin-top:14px;padding:10px 12px;border:2px solid #a32d2d;border-radius:6px;background:#fcebeb;color:#a32d2d;font-weight:600;font-size:12px">REFERRED TO PATHOLOGIST FOR REVIEW -- '+pathFlagReasons.join('; ')+'</div>':'')+
     '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>'+
     '</body></html>';
@@ -1546,6 +1645,14 @@ function deleteOrder(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
   if(!confirm('Delete this order?\n\n'+(o.accession||o.panel)+' -- '+(pt?ptName(pt):'')+' ('+o.panel+')\n\nThis will permanently remove the order and any results entered for it.\n\nThis cannot be undone.')) return;
+  if(o.panelKey==='UA' && o.microOrderId){
+    const child=S.orders.find(x=>x.id===o.microOrderId);
+    if(child){ delete child.parentOrderId; }
+  }
+  if(o.panelKey==='UAMicro' && o.parentOrderId){
+    const parent=S.orders.find(x=>x.id===o.parentOrderId);
+    if(parent){ delete parent.microOrderId; delete parent._uaMicroAdded; }
+  }
   S.orders=S.orders.filter(x=>x.id!==oid);
   S.results=S.results.filter(r=>r.orderId!==oid);
   S.batches.forEach(b=>{ b.specimens=b.specimens.filter(s=>s.orderId!==oid); });
