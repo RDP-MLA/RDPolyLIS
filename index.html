@@ -227,7 +227,15 @@ async function saveToServer() {
       patients: S.patients,
       orders: S.orders,
       results: S.results,
-      testCounter: S.testCounter
+      testCounter: S.testCounter,
+      batches: S.batches,
+      checklist: {
+        state: checklistState,
+        student: checklistStudent,
+        date: checklistDate,
+        evaluator: checklistEval,
+        overallComments: checklistOverallComments
+      }
     };
     const res = await fetch(SYNC_API_BASE + '/state?day=' + day, {
       method: 'POST',
@@ -248,7 +256,7 @@ async function loadFromServer() {
   if (syncBusy) return;
   const day = document.getElementById('syncDay').value;
   if (!day) { alert('Please select a day (Mon-Fri) or a student draft slot before loading.'); return; }
-  const confirmed = confirm('Loading will completely replace everything on this screen with the last SAVED version for this slot.\n\nAny changes made since your last Save (including new patients, orders, or results) will be LOST and cannot be recovered.\n\nContinue with Load?');
+  const confirmed = confirm('Loading will completely replace everything on this screen with the last SAVED version for this slot.\n\nAny changes made since your last Save (including new patients, orders, results, site batches, or the competency checklist) will be LOST and cannot be recovered.\n\nContinue with Load?');
   if (!confirmed) return;
   syncBusy = true;
   setSyncStatus('Loading...');
@@ -261,6 +269,20 @@ async function loadFromServer() {
       S.orders = data.orders || [];
       S.results = data.results || [];
       S.testCounter = data.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0};
+      S.batches = data.batches || [];
+      if (data.checklist) {
+        checklistState = data.checklist.state || {};
+        checklistStudent = data.checklist.student || '';
+        checklistDate = data.checklist.date || today();
+        checklistEval = data.checklist.evaluator || '';
+        checklistOverallComments = data.checklist.overallComments || '';
+      } else {
+        checklistState = {};
+        checklistStudent = '';
+        checklistDate = today();
+        checklistEval = '';
+        checklistOverallComments = '';
+      }
       const now = nowTime();
       setSyncStatus('Loaded at: ' + now);
     } else {
@@ -1754,24 +1776,34 @@ const CHECKLIST_ITEMS = {
   ]
 };
 
-let checklistState={}, checklistStudent='', checklistDate=today(), checklistEval='';
+let checklistState={}, checklistStudent='', checklistDate=today(), checklistEval='', checklistOverallComments='';
+
+function ensureChecklistItem(key) {
+  const cur = checklistState[key];
+  if (!cur || typeof cur !== 'object') {
+    checklistState[key] = { status: (cur==='met'||cur==='notmet') ? cur : undefined, comment: '' };
+  }
+  return checklistState[key];
+}
 
 function renderChecklist() {
   document.getElementById('topbar-right').innerHTML=
     '<button class="btn" onclick="window.print()"><i class="ti ti-printer"></i>Print</button> '+
     '<button class="btn btn-danger btn-sm" onclick="resetChecklist()"><i class="ti ti-refresh"></i>Reset</button>';
   const totalItems=Object.values(CHECKLIST_ITEMS).flat().length;
-  const checkedItems=Object.values(checklistState).filter(v=>v==='met').length;
+  const checkedItems=Object.values(checklistState).filter(v=>v&&typeof v==='object'&&v.status==='met').length;
   const sections=Object.entries(CHECKLIST_ITEMS).map(([section,items])=>{
     const itemRows=items.map((item,i)=>{
       const key=section+'::'+i;
-      const val=checklistState[key];
+      const entry=ensureChecklistItem(key);
+      const status=entry.status;
+      const comment=entry.comment||'';
       return '<tr>'+
-        '<td style="text-align:center"><input type="checkbox" '+(val==='met'?'checked':'')+' onchange="toggleCheck(\''+key+'\',this.checked)"></td>'+
+        '<td style="text-align:center"><input type="checkbox" '+(status==='met'?'checked':'')+' onchange="toggleCheck(\''+key+'\',this.checked)"></td>'+
         '<td style="font-size:12px">'+item+'</td>'+
-        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="met" '+(val==='met'?'checked':'')+' onchange="setCheck(\''+key+'\',\'met\')"></td>'+
-        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="notmet" '+(val==='notmet'?'checked':'')+' onchange="setCheck(\''+key+'\',\'notmet\')"></td>'+
-        '<td><input style="width:100%;padding:3px 6px;border:0.5px solid #ccc;border-radius:4px;font-size:11px;background:#fff;color:#111;font-family:inherit" placeholder=""></td></tr>';
+        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="met" '+(status==='met'?'checked':'')+' onchange="setCheck(\''+key+'\',\'met\')"></td>'+
+        '<td style="text-align:center"><input type="radio" name="cl_'+key+'" value="notmet" '+(status==='notmet'?'checked':'')+' onchange="setCheck(\''+key+'\',\'notmet\')"></td>'+
+        '<td><input style="width:100%;padding:3px 6px;border:0.5px solid #ccc;border-radius:4px;font-size:11px;background:#fff;color:#111;font-family:inherit" placeholder="" value="'+comment.replace(/"/g,'&quot;')+'" oninput="setChecklistComment(\''+key+'\',this.value)"></td></tr>';
     }).join('');
     return '<div class="card"><div class="card-title"><i class="ti ti-checkbox"></i>'+section+'</div>'+
       '<table><thead><tr><th style="width:36px"></th><th>Competency Item</th>'+
@@ -1792,7 +1824,7 @@ function renderChecklist() {
     (checkedItems===totalItems?'Complete':'In progress')+'</div></div></div></div>'+
     sections+
     '<div class="card"><div class="card-title"><i class="ti ti-writing"></i>Overall Comments</div>'+
-    '<div class="field"><label>Evaluator comments</label><textarea style="min-height:80px" placeholder="Strengths, areas for improvement..."></textarea></div>'+
+    '<div class="field"><label>Evaluator comments</label><textarea id="cl-overall" style="min-height:80px" placeholder="Strengths, areas for improvement..." oninput="checklistOverallComments=this.value">'+checklistOverallComments+'</textarea></div>'+
     '<div class="grid2" style="margin-top:14px;padding-top:14px;border-top:0.5px solid #e5e5e5">'+
     '<div><div style="font-size:11px;color:#666;margin-bottom:20px">Student Signature</div>'+
     '<div style="border-bottom:0.5px solid #111;height:24px;margin-bottom:4px"></div>'+
@@ -1803,9 +1835,10 @@ function renderChecklist() {
     '<div style="font-size:10px;color:#666;margin-top:12px;text-align:center">'+
     'Red Deer Polytechnic -- MLA Program -- Specimen Collection Competency Checklist | '+checklistDate+'</div></div>';
 }
-function toggleCheck(key,checked) { checklistState[key]=checked?'met':undefined; renderChecklist(); }
-function setCheck(key,val) { checklistState[key]=val; renderChecklist(); }
-function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';renderChecklist();} }
+function toggleCheck(key,checked) { const item=ensureChecklistItem(key); item.status=checked?'met':undefined; renderChecklist(); }
+function setCheck(key,val) { const item=ensureChecklistItem(key); item.status=val; renderChecklist(); }
+function setChecklistComment(key,val) { const item=ensureChecklistItem(key); item.comment=val; }
+function resetChecklist() { if(confirm('Reset checklist?')){checklistState={};checklistStudent='';checklistEval='';checklistOverallComments='';renderChecklist();} }
 
 // --- Sandbox Mode ---
 let _preSandboxState = null;
