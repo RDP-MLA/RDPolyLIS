@@ -22,9 +22,10 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#f5f5f3;color:#1
 .nav-item.active{background:#e6f1fb;color:#185fa5;border-left-color:#185fa5;font-weight:500}
 .nav-item i{font-size:15px;flex-shrink:0}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{height:var(--topbar);background:#fff;border-bottom:0.5px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
+.topbar{min-height:var(--topbar);background:#fff;border-bottom:0.5px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;padding:8px 20px;flex-shrink:0;flex-wrap:wrap;row-gap:8px}
 .topbar-title{font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px}
-.topbar-right{display:flex;align-items:center;gap:8px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.topbar-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;row-gap:8px}
 .content{flex:1;overflow-y:auto;padding:20px}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:0.5px solid #ccc;border-radius:6px;background:#fff;color:#111;cursor:pointer;font-size:12px;font-weight:500;transition:background .12s;font-family:inherit}
 .btn:hover{background:#f5f5f3}
@@ -85,9 +86,14 @@ tbody tr:hover td{background:#f9f9f7}
 .sandbox-banner .btn{background:#fff;color:#3C3489;border:none}
 .sandbox-banner .btn:hover{background:#EEEDFE}
 .empty{text-align:center;padding:36px 20px;color:#666}
-.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:#666}
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:#666;flex-wrap:wrap;row-gap:6px}
 .sync-bar select{padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:11px;background:#fff;color:#111;font-family:inherit}
 .sync-status{font-size:10px;color:#666;white-space:nowrap}
+@media (max-width:900px){
+  .topbar{padding:8px 12px}
+  .sync-bar select{max-width:120px}
+  .sync-status{width:100%;order:5}
+}
 @media print{
   .sidebar,.topbar,.btn,.nav-item{display:none!important}
   .main{overflow:visible}.content{padding:0}
@@ -132,7 +138,7 @@ tbody tr:hover td{background:#f9f9f7}
   <div class="main">
     <div class="topbar">
       <div class="topbar-title" id="topbar-title"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
-      <div style="display:flex;align-items:center;gap:16px">
+      <div class="topbar-controls">
         <div class="sync-bar" id="syncBar">
           <select id="syncDay" onchange="onSyncDayChange()">
             <option value="">Day --</option>
@@ -356,6 +362,7 @@ const REF = {
   Lipase:{name:'Lipase',unit:'U/L',lo:13,hi:60,critLo:null,critHi:null,peds:'Similar to adult'},
   LDH:{name:'LDH',unit:'U/L',lo:120,hi:246,critLo:null,critHi:null,peds:'Children higher'},
   CRP:{name:'C-Reactive Protein',unit:'mg/L',lo:0,hi:5,critLo:null,critHi:null,peds:'Similar to adult'},
+  Lactate:{name:'Lactate',unit:'mmol/L',lo:0.5,hi:2.2,critLo:null,critHi:4.0,peds:'Similar to adult'},
   Iron:{name:'Iron',unit:'umol/L',lo:9,hi:30,critLo:null,critHi:null,femLo:7,femHi:27,peds:'Similar to adult'},
   TIBC:{name:'TIBC',unit:'umol/L',lo:45,hi:72,critLo:null,critHi:null,peds:'Similar to adult'},
   Ferritin:{name:'Ferritin',unit:'ug/L',lo:30,hi:300,critLo:null,critHi:null,femLo:15,femHi:200,peds:'Similar to adult'},
@@ -455,6 +462,7 @@ const PANELS = {
   AmylaseLipase:{name:'Amylase & Lipase',dept:'C',tests:['Amylase','Lipase'],tube:'SST (gold)'},
   LDHPanel:{name:'LDH',dept:'C',tests:['LDH'],tube:'SST (gold)'},
   Immunoglobulins:{name:'IgA / IgE',dept:'C',tests:['IgA','IgE'],tube:'SST (gold)'},
+  LactatePanel:{name:'Lactate',dept:'C',tests:['Lactate'],tube:'Grey (sodium fluoride) - transport on ice, run within 15 min if possible'},
   UA:{name:'UA',dept:'U',tests:['UA_Color','UA_Clarity','UA_SG','UA_pH2','UA_Prot2','UA_Gluc2','UA_Ket2','UA_Blood2','UA_Nit2','UA_Leuk2','UA_ReflexNote'],tube:'Urine cup (60 mL sterile)'},
   UAMicro:{name:'UA-MICRO',dept:'U',tests:['UAM_WBC','UAM_RBC','UAM_Epi','UAM_RenalEpi','UAM_WBCClumps','UAM_Casts','UAM_CrystalsAcid','UAM_CrystalsAlkaline','UAM_Bacteria','UAM_Yeast','UAM_Sperm','UAM_Trich','UAM_Entero','UAM_FatGlobules','UAM_OvalFatBodies'],tube:'Urine cup (same specimen, centrifuged)'},
   TypeScreen:{name:'Type and Screen',dept:'T',tests:['ABO','Rh','Ab_Sc'],tube:'EDTA (pink transfusion)'},
