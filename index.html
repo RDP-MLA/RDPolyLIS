@@ -130,6 +130,7 @@ tbody tr:hover td{background:#f9f9f7}
     </div>
     <div class="nav-group">
       <div class="nav-label">Tools</div>
+      <div class="nav-item" onclick="nav('pending')" id="nav-pending"><i class="ti ti-hourglass"></i>Pending List<span id="pendingNavBadge"></span></div>
       <div class="nav-item" onclick="nav('rejected')" id="nav-rejected"><i class="ti ti-ban"></i>Rejected Specimens</div>
       <div class="nav-item" onclick="nav('batches')" id="nav-batches"><i class="ti ti-truck"></i>Site Batches<span id="batchNavBadge"></span></div>
       <div class="nav-item" onclick="nav('checklist')" id="nav-checklist"><i class="ti ti-checkbox"></i>Competency Checklist</div>
@@ -455,6 +456,7 @@ const PANELS = {
   Thyroid:{name:'Thyroid TSH',dept:'C',tests:['TSH'],tube:'SST (gold)'},
   HbA1c:{name:'Hemoglobin A1c',dept:'C',tests:['HbA1c'],tube:'EDTA (lavender) or SST'},
   Lipid:{name:'Lipid Panel',dept:'C',tests:['Chol','Trig','HDL','LDL'],tube:'SST (gold), fasting preferred'},
+  Cholesterol:{name:'Cholesterol',dept:'C',tests:['Chol'],tube:'SST (gold) -- fasting not required unless requested by physician; if required, 12-16h (8h if diabetic)'},
   IronStudies:{name:'Iron Studies',dept:'C',tests:['Iron','TIBC','Ferritin'],tube:'SST (gold)'},
   B12Folate:{name:'Vitamin B12 / Folate',dept:'C',tests:['B12','Folate'],tube:'SST (gold)'},
   CRP_Panel:{name:'CRP',dept:'C',tests:['CRP'],tube:'SST (gold)'},
@@ -556,7 +558,7 @@ function render() {
     dashboard:renderDashboard, patients:renderPatients, orders:renderOrders,
     accession:renderAccession, receive:renderReceive, results:renderResults,
     verify:renderVerify, reports:renderReports, rejected:renderRejected,
-    checklist:renderChecklist, batches:renderBatches,
+    checklist:renderChecklist, batches:renderBatches, pending:renderPending,
     heme:()=>renderSection('H'), coag:()=>renderSection('O'),
     chem:()=>renderSection('C'), ua:()=>renderSection('U'), transfusion:()=>renderSection('T'),
     micro:()=>renderSection('M')
@@ -565,19 +567,20 @@ function render() {
     dashboard:'Dashboard', patients:'Patient Registry', orders:'Order Entry',
     accession:'Specimen Accessioning', receive:'Receive Specimen', results:'Result Entry',
     verify:'Result Verification', reports:'Lab Reports', rejected:'Rejected Specimens',
-    checklist:'Competency Checklist', batches:'Site Batches',
+    checklist:'Competency Checklist', batches:'Site Batches', pending:'Pending List',
     heme:'Hematology', coag:'Coagulation', chem:'Chemistry', ua:'Urinalysis', transfusion:'Transfusion Medicine',
     micro:'Microbiology / POCT'
   };
   const icons = {
     dashboard:'ti-layout-dashboard', patients:'ti-user', orders:'ti-clipboard-list',
     accession:'ti-barcode', receive:'ti-inbox', results:'ti-microscope', verify:'ti-circle-check',
-    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', batches:'ti-truck',
+    reports:'ti-file-analytics', rejected:'ti-ban', checklist:'ti-checkbox', batches:'ti-truck', pending:'ti-hourglass',
     heme:'ti-drop', coag:'ti-activity', chem:'ti-flask', ua:'ti-test-pipe', transfusion:'ti-heart-rate-monitor',
     micro:'ti-virus'
   };
   document.getElementById('topbar-title').innerHTML = '<i class="ti '+icons[S.currentPage]+'"></i>'+titles[S.currentPage];
   updateBatchNavBadge();
+  updatePendingNavBadge();
   updateSandboxUI();
   const fn=map[S.currentPage]; if(fn) fn();
 }
@@ -587,6 +590,48 @@ function updateBatchNavBadge() {
   const count=S.batches.filter(b=>b.status==='Open'||b.status==='In Transit').length;
   el.className=count?'nav-batch-badge':'';
   el.textContent=count?count:'';
+}
+
+// --- Pending List ---
+// A specimen is "pending" once it has been received, up until it is either
+// rejected or placed into a site batch. It stays pending through result entry
+// and only drops off once verified, rejected, or batched. If pulled back out
+// of a batch, it reappears here automatically (membership is checked live,
+// never stored on the order itself).
+function isOrderBatched(oid) {
+  return S.batches.some(b=>b.specimens.some(s=>s.orderId===oid));
+}
+function pendingOrders() {
+  return S.orders.filter(o=>(o.status==='received'||o.status==='resulted')&&!isOrderBatched(o.id));
+}
+function updatePendingNavBadge() {
+  const el=document.getElementById('pendingNavBadge'); if(!el) return;
+  const count=pendingOrders().length;
+  el.className=count?'nav-batch-badge':'';
+  el.textContent=count?count:'';
+}
+function renderPending() {
+  document.getElementById('topbar-right').innerHTML='';
+  const list=pendingOrders().sort((a,b)=>(a.receivedAt||'').localeCompare(b.receivedAt||''));
+  const rows=list.length?list.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr>'+
+      '<td style="font-family:monospace;font-size:10px">'+(o.accession||'--')+'</td>'+
+      '<td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+'</span></td>'+
+      '<td>'+o.panel+'</td>'+
+      '<td><span class="badge '+statusBadge(o.status)+'">'+statusLabel(o.status)+'</span></td>'+
+      '<td style="font-size:11px;color:#666">'+(o.receivedAt||'--')+'</td>'+
+      '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
+      '<td>'+(o.status==='received'?
+        '<button class="btn btn-sm btn-primary" onclick="enterResults(\''+o.id+'\')"><i class="ti ti-edit"></i>Results</button> ':
+        '<button class="btn btn-sm btn-primary" onclick="nav(\'verify\')"><i class="ti ti-circle-check"></i>Verify</button> ')+
+      '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button></td></tr>';
+  }).join(''):'<tr><td colspan="7"><div class="empty">No pending specimens -- everything received has been verified, batched, or rejected</div></td></tr>';
+  document.getElementById('content').innerHTML=
+    '<div class="info-box" style="margin-bottom:14px"><i class="ti ti-info-circle"></i> Specimens appear here once received, and drop off once verified, rejected, or added to a site batch.</div>'+
+    '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
+    '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Status</th><th>Received</th><th>Priority</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 function openModal(title, body, buttons) {
