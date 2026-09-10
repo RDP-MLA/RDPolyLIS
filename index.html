@@ -182,6 +182,7 @@ tbody tr:hover td{background:#f9f9f7}
           <button class="btn btn-sm" onclick="loadFromServer()"><i class="ti ti-download"></i>Load</button>
           <button class="btn btn-sm btn-primary" onclick="saveToServer()"><i class="ti ti-cloud-upload"></i>Save</button>
           <span class="sync-status" id="syncStatus">Not saved yet</span>
+          <span class="sync-status" id="dirtyIndicator" style="font-weight:600"></span>
         </div>
         <button class="btn btn-sm" id="sandboxToggleBtn" onclick="toggleSandbox()"><i class="ti ti-flask-2"></i>Sandbox</button>
         <div class="topbar-right" id="topbar-right"></div>
@@ -207,6 +208,7 @@ const BATCH_FACILITIES = ['University of Alberta Hospital (UAH)','Calgary DSC','
 
 const SYNC_API_BASE = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
 let syncBusy = false;
+let lastSavedSnapshot = null;
 
 function todayWeekdayKey() {
   const d = new Date().getDay(); // 0=Sun,1=Mon,...6=Sat
@@ -222,6 +224,50 @@ function setSyncStatus(msg) {
 function onSyncDayChange() {
   // Just remembers the selection; actual load/save happens on button press.
 }
+
+// --- Unsaved-changes tracking ---
+// Snapshot-compares current state against the last save/load baseline so
+// students and instructors can see, before they navigate away or hand off
+// a device, whether their edits actually made it to the server yet.
+function currentStateSnapshot() {
+  return JSON.stringify({
+    patients: S.patients,
+    orders: S.orders,
+    results: S.results,
+    testCounter: S.testCounter,
+    batches: S.batches,
+    checklist: {
+      state: checklistState,
+      student: checklistStudent,
+      date: checklistDate,
+      evaluator: checklistEval,
+      overallComments: checklistOverallComments
+    }
+  });
+}
+
+function updateDirtyIndicator() {
+  const el = document.getElementById('dirtyIndicator');
+  if (!el) return;
+  if (S._sandbox || lastSavedSnapshot === null) { el.textContent = ''; return; }
+  const dirty = currentStateSnapshot() !== lastSavedSnapshot;
+  if (dirty) {
+    el.textContent = 'Unsaved changes -- click Save';
+    el.style.color = '#a32d2d';
+  } else {
+    el.textContent = 'All changes saved';
+    el.style.color = '#3b6d11';
+  }
+}
+setInterval(updateDirtyIndicator, 1200);
+
+window.addEventListener('beforeunload', function(e) {
+  if (S._sandbox || lastSavedSnapshot === null) return;
+  if (currentStateSnapshot() !== lastSavedSnapshot) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 async function saveToServer() {
   if (syncBusy) return;
@@ -251,6 +297,8 @@ async function saveToServer() {
     });
     if (!res.ok) throw new Error('Server returned ' + res.status);
     setSyncStatus('Last saved: ' + nowTime());
+    lastSavedSnapshot = currentStateSnapshot();
+    updateDirtyIndicator();
   } catch (err) {
     setSyncStatus('Save failed - try again');
     alert('Saving failed. Please check your internet connection and try again.\n\n(' + err.message + ')');
@@ -295,6 +343,8 @@ async function loadFromServer() {
     } else {
       setSyncStatus('No saved data for this day yet');
     }
+    lastSavedSnapshot = currentStateSnapshot();
+    updateDirtyIndicator();
     nav('dashboard');
   } catch (err) {
     setSyncStatus('Load failed - try again');
@@ -489,6 +539,7 @@ const REJECTION_REASONS = [
   {id:'leaked',label:'Leaking / damaged container',recollect:true},
   {id:'no_ice',label:'Requires ice - received warm',recollect:true},
   {id:'improper_fix',label:'Improper fixation',recollect:true},
+  {id:'incorrect_handling',label:'Incorrect handling/processing',recollect:true},
   {id:'other',label:'Other (specify in notes)',recollect:false}
 ];
 
@@ -1038,7 +1089,7 @@ function addToBatch(oid) {
   const options = openBatches.map(b=>
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
     '<span>'+b.id.slice(-6)+' -- '+b.destination+' ('+b.specimens.length+' item'+(b.specimens.length!==1?'s':'')+')</span>'+
-    '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+b.id+'\',\''+oid+'\');closeModal();"><i class="ti ti-plus"></i>Add here</button></div>'
+    '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+b.id+'\',\''+oid+'\')"><i class="ti ti-plus"></i>Add here</button></div>'
   ).join('');
   openModal('Add to Site Batch',
     (openBatches.length?options:'<div class="empty">No open batches yet</div>')+
@@ -1123,6 +1174,7 @@ function openBatchDetail(batchId) {
       '<div id="batchSearchResults" style="max-height:180px;overflow:auto;margin-top:6px"></div>'+
       '</div>':'');
   const buttons=[{label:'Close',cls:'btn',fn:closeModal},
+    {label:'Save',cls:'btn btn-primary',fn:()=>{saveToServer();}},
     {label:'Print Manifest',cls:'btn',fn:()=>{printableBatchManifest(b.id);}}];
   if(b.status==='Open') buttons.push({label:'Close & Package',cls:'btn btn-primary',fn:()=>{closeAndPackageBatch(b.id);}});
   if(b.status==='In Transit') buttons.push({label:'Receive',cls:'btn btn-success',fn:()=>{receiveBatch(b.id);}});
@@ -1183,7 +1235,8 @@ function renderResults() {
       '<td style="font-family:monospace;font-size:11px">'+(o.collectorId||'--')+'</td>'+
       '<td style="font-size:11px">'+(o.receiptCondition||'--')+'</td>'+
       '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
-      '<td><button class="btn btn-sm btn-primary" onclick="enterResults(\''+o.id+'\')"><i class="ti ti-edit"></i>Enter</button></td></tr>';
+      '<td><button class="btn btn-sm btn-primary" onclick="enterResults(\''+o.id+'\')"><i class="ti ti-edit"></i>Enter</button> '+
+      '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button></td></tr>';
   }).join(''):'<tr><td colspan="8"><div class="empty">No specimens ready -- receive specimens first</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
