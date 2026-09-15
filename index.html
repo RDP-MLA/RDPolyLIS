@@ -141,6 +141,7 @@ tbody tr:hover td{background:#f9f9f7}
       <div class="topbar-title" id="topbar-title"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
       <div class="topbar-controls">
         <div class="sync-bar" id="syncBar">
+          <select id="siteSelect" onchange="onSiteChange()" title="Collection site"></select>
           <select id="syncDay" onchange="onSyncDayChange()">
             <option value="">Day --</option>
             <option value="mon">Monday</option>
@@ -148,36 +149,6 @@ tbody tr:hover td{background:#f9f9f7}
             <option value="wed">Wednesday</option>
             <option value="thu">Thursday</option>
             <option value="fri">Friday</option>
-            <optgroup label="Student Draft Slots (never auto-cleared)">
-              <option value="draft:abra-gravel-kat">Abra-Gravel, Kat</option>
-              <option value="draft:adam-andrea">Adam, Andrea</option>
-              <option value="draft:babar-aleena">Babar, Aleena</option>
-              <option value="draft:belisle-brie">Belisle, Brie</option>
-              <option value="draft:collison-jayden">Collison, Jayden</option>
-              <option value="draft:deschenes-alexis">Deschenes, Alexis</option>
-              <option value="draft:duru-carissa">Duru, Carissa</option>
-              <option value="draft:gordon-jessica">Gordon, Jessica</option>
-              <option value="draft:herder-megan">Herder, Megan</option>
-              <option value="draft:herman-lindsey">Herman, Lindsey</option>
-              <option value="draft:humbke-bailey">Humbke, Bailey</option>
-              <option value="draft:hunt-cadence">Hunt, Cadence</option>
-              <option value="draft:kennedy-dayna">Kennedy, Dayna</option>
-              <option value="draft:laschuk-skylar">Laschuk, Skylar</option>
-              <option value="draft:little-miranda">Little, Miranda</option>
-              <option value="draft:mckillop-mackenzie">McKillop, MacKenzie</option>
-              <option value="draft:pansacala-jayssee">Pansacala, Jayssee</option>
-              <option value="draft:patel-prarthna">Patel, Prarthna</option>
-              <option value="draft:perry-keira">Perry, Keira</option>
-              <option value="draft:potts-brandon">Potts, Brandon</option>
-              <option value="draft:quick-jessica">Quick, Jessica</option>
-              <option value="draft:quintos-roubie">Quintos, Roubie</option>
-              <option value="draft:randall-cassidy">Randall, Cassidy</option>
-              <option value="draft:rennich-brooklynn">Rennich, Brooklynn</option>
-              <option value="draft:rich-hope">Rich, Hope</option>
-              <option value="draft:shaurette-randi">Shaurette, Randi</option>
-              <option value="draft:tulud-lester">Tulud, Lester</option>
-              <option value="draft:white-shade">White, Shade</option>
-            </optgroup>
           </select>
           <button class="btn btn-sm" onclick="loadFromServer()"><i class="ti ti-download"></i>Load</button>
           <button class="btn btn-sm btn-primary" onclick="saveToServer()"><i class="ti ti-cloud-upload"></i>Save</button>
@@ -201,14 +172,26 @@ const S = {
   patients: [], orders: [], results: [], batches: [],
   currentPage: 'dashboard',
   testCounter: {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
+  site: 'RD',
   _quickOrderPt: null, _sandbox: false
 };
 
 const BATCH_FACILITIES = ['University of Alberta Hospital (UAH)','Calgary DSC','Foothills Hospital','Red Deer Regional Health Center','Edmonton Base Lab','Calgary Provincial Lab'];
 
+// --- Collection Sites ---
+// Each site has a short code that gets embedded directly into the accession
+// number (see genAcc) so a specimen's accession # identifies which physical
+// site it was collected at, alongside its full descriptive name for display.
+const SITES = [
+  {code:'RD', name:'Red Deer (main campus)'},
+  {code:'OL', name:'Olds'}
+];
+function siteName(code) { return (SITES.find(s=>s.code===code)||{name:code}).name; }
+
 const SYNC_API_BASE = 'https://rapid-bush-dc12.jacklyn-mireault.workers.dev';
 let syncBusy = false;
 let lastSavedSnapshot = null;
+let pendingUpdateAvailable = false; // true when a background check found newer server data this device couldn't safely auto-apply
 
 function todayWeekdayKey() {
   const d = new Date().getDay(); // 0=Sun,1=Mon,...6=Sat
@@ -223,6 +206,19 @@ function setSyncStatus(msg) {
 
 function onSyncDayChange() {
   // Just remembers the selection; actual load/save happens on button press.
+  pendingUpdateAvailable = false;
+}
+
+function populateSiteSelect() {
+  const el = document.getElementById('siteSelect');
+  if (!el) return;
+  el.innerHTML = SITES.map(s=>'<option value="'+s.code+'">'+s.name+' ('+s.code+')</option>').join('');
+  el.value = S.site || 'RD';
+}
+function onSiteChange() {
+  const el = document.getElementById('siteSelect');
+  if (!el) return;
+  S.site = el.value;
 }
 
 // --- Unsaved-changes tracking ---
@@ -236,6 +232,7 @@ function currentStateSnapshot() {
     results: S.results,
     testCounter: S.testCounter,
     batches: S.batches,
+    site: S.site,
     checklist: {
       state: checklistState,
       student: checklistStudent,
@@ -261,6 +258,92 @@ function updateDirtyIndicator() {
 }
 setInterval(updateDirtyIndicator, 1200);
 
+// --- Pending List background sync ---
+// While a device is sitting on the Pending List, check the server every 30s
+// for changes made by other devices working the same day slot. If this
+// device has no unsaved changes of its own, it's safe to pull the update in
+// silently. If it does have unsaved local changes, auto-applying the server
+// copy would silently destroy them -- so instead we just flag that newer
+// data exists and let the student choose to refresh.
+// Builds the same comparable snapshot shape as currentStateSnapshot(), but
+// from a freshly-fetched server payload instead of local state, so the two
+// can be compared directly.
+function snapshotFromPayload(data) {
+  return JSON.stringify({
+    patients: data.patients || [],
+    orders: data.orders || [],
+    results: data.results || [],
+    testCounter: data.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0},
+    batches: data.batches || [],
+    site: data.site || 'RD',
+    checklist: {
+      state: (data.checklist && data.checklist.state) || {},
+      student: (data.checklist && data.checklist.student) || '',
+      date: (data.checklist && data.checklist.date) || today(),
+      evaluator: (data.checklist && data.checklist.evaluator) || '',
+      overallComments: (data.checklist && data.checklist.overallComments) || ''
+    }
+  });
+}
+
+async function pollPendingUpdates() {
+  if (S.currentPage !== 'pending' || S._sandbox || syncBusy) return;
+  const dayEl = document.getElementById('syncDay');
+  const day = dayEl ? dayEl.value : '';
+  if (!day) return;
+  syncBusy = true;
+  try {
+    const res = await fetch(SYNC_API_BASE + '/state?day=' + day, { method: 'GET' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !Object.keys(data).length) return;
+    // Compare the FULL state, not just orders/batches -- otherwise a change
+    // to patients, results, or the checklist on another device would go
+    // undetected here, and this device could later Save and silently
+    // overwrite that other work with its own stale copy.
+    if (snapshotFromPayload(data) === currentStateSnapshot()) {
+      if (pendingUpdateAvailable) { pendingUpdateAvailable = false; if (S.currentPage==='pending') render(); }
+      return;
+    }
+    // A modal opened from the Pending page (Results, Reject, Batch, etc.)
+    // keeps S.currentPage==='pending' while it's open. Auto-applying a full
+    // state replace underneath it could remove/alter the very
+    // patient/order/batch the modal is currently referencing, leaving its
+    // buttons silently doing nothing with no explanation. Treat an open
+    // modal as unsafe to auto-apply, same as unsaved local changes.
+    const modalEl = document.getElementById('modal');
+    const modalOpen = !!(modalEl && modalEl.style.display === 'flex');
+    const clean = !modalOpen && lastSavedSnapshot !== null && currentStateSnapshot() === lastSavedSnapshot;
+    if (clean) {
+      S.patients = data.patients || [];
+      S.orders = data.orders || [];
+      S.results = data.results || [];
+      S.testCounter = data.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0};
+      S.batches = data.batches || [];
+      S.site = data.site || 'RD';
+      if (data.checklist) {
+        checklistState = data.checklist.state || {};
+        checklistStudent = data.checklist.student || '';
+        checklistDate = data.checklist.date || today();
+        checklistEval = data.checklist.evaluator || '';
+        checklistOverallComments = data.checklist.overallComments || '';
+      }
+      lastSavedSnapshot = currentStateSnapshot();
+      pendingUpdateAvailable = false;
+      updateDirtyIndicator();
+      populateSiteSelect();
+    } else {
+      pendingUpdateAvailable = true;
+    }
+    if (S.currentPage === 'pending' && !modalOpen) render();
+  } catch (err) {
+    // Silent -- this is a background convenience check, not a user-initiated action.
+  } finally {
+    syncBusy = false;
+  }
+}
+setInterval(pollPendingUpdates, 30000);
+
 window.addEventListener('beforeunload', function(e) {
   if (S._sandbox || lastSavedSnapshot === null) return;
   if (currentStateSnapshot() !== lastSavedSnapshot) {
@@ -272,7 +355,7 @@ window.addEventListener('beforeunload', function(e) {
 async function saveToServer() {
   if (syncBusy) return;
   const day = document.getElementById('syncDay').value;
-  if (!day) { alert('Please select a day (Mon-Fri) or a student draft slot before saving.'); return; }
+  if (!day) { alert('Please select a day (Mon-Fri) before saving.'); return; }
   syncBusy = true;
   setSyncStatus('Saving...');
   try {
@@ -282,6 +365,7 @@ async function saveToServer() {
       results: S.results,
       testCounter: S.testCounter,
       batches: S.batches,
+      site: S.site,
       checklist: {
         state: checklistState,
         student: checklistStudent,
@@ -296,9 +380,35 @@ async function saveToServer() {
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error('Server returned ' + res.status);
+    const data = await res.json();
+    // The server merges this save with whatever other devices have already
+    // saved and hands back the combined result -- apply it immediately so
+    // this device reflects everyone's latest data right away, rather than
+    // only finding out via the next Pending List poll (or never, on any
+    // other page).
+    if (data && data.state) {
+      S.patients = data.state.patients || [];
+      S.orders = data.state.orders || [];
+      S.results = data.state.results || [];
+      S.testCounter = data.state.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0};
+      S.batches = data.state.batches || [];
+      S.site = data.state.site || S.site || 'RD';
+      if (data.state.checklist) {
+        checklistState = data.state.checklist.state || {};
+        checklistStudent = data.state.checklist.student || '';
+        checklistDate = data.state.checklist.date || today();
+        checklistEval = data.state.checklist.evaluator || '';
+        checklistOverallComments = data.state.checklist.overallComments || '';
+      }
+      populateSiteSelect();
+    }
     setSyncStatus('Last saved: ' + nowTime());
     lastSavedSnapshot = currentStateSnapshot();
+    pendingUpdateAvailable = false;
     updateDirtyIndicator();
+    const modalEl = document.getElementById('modal');
+    const modalOpen = !!(modalEl && modalEl.style.display === 'flex');
+    if (S.currentPage && !modalOpen) render();
   } catch (err) {
     setSyncStatus('Save failed - try again');
     alert('Saving failed. Please check your internet connection and try again.\n\n(' + err.message + ')');
@@ -310,7 +420,7 @@ async function saveToServer() {
 async function loadFromServer() {
   if (syncBusy) return;
   const day = document.getElementById('syncDay').value;
-  if (!day) { alert('Please select a day (Mon-Fri) or a student draft slot before loading.'); return; }
+  if (!day) { alert('Please select a day (Mon-Fri) before loading.'); return; }
   const confirmed = confirm('Loading will completely replace everything on this screen with the last SAVED version for this slot.\n\nAny changes made since your last Save (including new patients, orders, results, site batches, or the competency checklist) will be LOST and cannot be recovered.\n\nContinue with Load?');
   if (!confirmed) return;
   syncBusy = true;
@@ -325,6 +435,7 @@ async function loadFromServer() {
       S.results = data.results || [];
       S.testCounter = data.testCounter || {H:0,O:0,C:0,U:0,T:0,M:0,R:0};
       S.batches = data.batches || [];
+      S.site = data.site || 'RD';
       if (data.checklist) {
         checklistState = data.checklist.state || {};
         checklistStudent = data.checklist.student || '';
@@ -344,7 +455,9 @@ async function loadFromServer() {
       setSyncStatus('No saved data for this day yet');
     }
     lastSavedSnapshot = currentStateSnapshot();
+    pendingUpdateAvailable = false;
     updateDirtyIndicator();
+    populateSiteSelect();
     nav('dashboard');
   } catch (err) {
     setSyncStatus('Load failed - try again');
@@ -565,7 +678,13 @@ function genAcc(dept) {
   const start = new Date(now.getFullYear(),0,0);
   const day = String(Math.floor((now-start)/86400000)).padStart(3,'0');
   S.testCounter[dept] = (S.testCounter[dept]||0)+1;
-  return yr+'RD-'+day+dept+String(S.testCounter[dept]).padStart(5,'0');
+  // A fresh 2-digit random tag is generated on every call (independent of the
+  // sequential counter) and appended to the number. The sequential portion
+  // still counts up within a session for traceability, but two students
+  // whose counters land on the same position (e.g. both on their first CBC
+  // of the day) will still end up with different accession numbers.
+  const rand = String(Math.floor(Math.random()*100)).padStart(2,'0');
+  return yr+(S.site||'RD')+'-'+day+dept+String(S.testCounter[dept]).padStart(5,'0')+rand;
 }
 function today() { return new Date().toISOString().slice(0,10); }
 function nowTime() {
@@ -607,6 +726,7 @@ function nav(page) {
   const n=document.getElementById('nav-'+page);
   if(n) n.classList.add('active');
   render();
+  if(page==='pending') pollPendingUpdates();
 }
 
 function render() {
@@ -683,11 +803,76 @@ function renderPending() {
         '<button class="btn btn-sm btn-primary" onclick="nav(\'verify\')"><i class="ti ti-circle-check"></i>Verify</button> ')+
       '<button class="btn btn-sm" onclick="addToBatch(\''+o.id+'\')"><i class="ti ti-truck"></i>Batch</button></td></tr>';
   }).join(''):'<tr><td colspan="7"><div class="empty">No pending specimens -- everything received has been verified, batched, or rejected</div></td></tr>';
+  const updateBanner = pendingUpdateAvailable
+    ? '<div class="warn-box" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px"><span><i class="ti ti-refresh"></i> Newer data is available from another device.</span><button class="btn btn-sm btn-primary" onclick="loadFromServer()">Refresh now</button></div>'
+    : '';
   document.getElementById('content').innerHTML=
+    updateBanner+
     '<div class="info-box" style="margin-bottom:14px"><i class="ti ti-info-circle"></i> Specimens appear here once received, and drop off once verified, rejected, or added to a site batch.</div>'+
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
     '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Status</th><th>Received</th><th>Priority</th><th></th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+// A short random tag identifying this browser tab for the lifetime of this
+// page load. Used only to tell locks apart ("who currently has this open")
+// -- it isn't a login and doesn't need to survive a reload.
+const DEVICE_ID = 'Device-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+// Locks currently held by this tab, released together whenever the modal
+// that acquired them closes (see closeModal() below -- this is the one
+// place every modal-close path funnels through, whether by Cancel, the X
+// button, clicking the dark background, or a successful Confirm action).
+let activeLockIds = [];
+
+// Attempts to lock every id in `ids` together, atomically -- either all of
+// them lock or none do, so a modal covering several tests sharing one tube
+// can't end up holding only some of the records it's about to edit.
+// Returns true if it's safe to proceed opening the modal, false if the
+// student should be shown a conflict message instead. Network problems
+// fail OPEN (return true) rather than blocking a class over a dropped
+// connection -- this is a courtesy check, not an authorization system.
+async function acquireLocks(ids) {
+  if (!ids || !ids.length) return true;
+  const dayEl = document.getElementById('syncDay');
+  const day = dayEl ? dayEl.value : '';
+  if (!day) { alert('Please select a day before working with this record.'); return false; }
+  try {
+    const res = await fetch(SYNC_API_BASE + '/lock?day=' + day, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, owner: DEVICE_ID })
+    });
+    if (res.status === 409) {
+      const data = await res.json();
+      const who = (data.conflicts && data.conflicts[0] && data.conflicts[0].owner) || 'another user';
+      alert('This record is currently open by another user (' + who + '). Please try again in a moment.');
+      return false;
+    }
+    if (!res.ok) return true;
+    activeLockIds = ids.slice();
+    return true;
+  } catch (err) {
+    return true;
+  }
+}
+
+async function releaseLocks() {
+  if (!activeLockIds.length) return;
+  const ids = activeLockIds;
+  activeLockIds = [];
+  const dayEl = document.getElementById('syncDay');
+  const day = dayEl ? dayEl.value : '';
+  if (!day) return;
+  try {
+    await fetch(SYNC_API_BASE + '/unlock?day=' + day, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, owner: DEVICE_ID })
+    });
+  } catch (err) {
+    // Best-effort -- an unreleased lock still expires on its own.
+  }
 }
 
 function openModal(title, body, buttons) {
@@ -700,7 +885,7 @@ function openModal(title, body, buttons) {
   document.getElementById('modal').style.display='flex';
   btns.forEach(b=>{ const el=document.getElementById('mb_'+b.label.replace(/\W/g,'_')); if(el&&b.fn) el.onclick=b.fn; });
 }
-function closeModal() { document.getElementById('modal').style.display='none'; }
+function closeModal() { document.getElementById('modal').style.display='none'; releaseLocks(); }
 function closeModalBg(e) { if(e.target===document.getElementById('modal')) closeModal(); }
 
 function wfRow(label,count,cls) {
@@ -842,7 +1027,117 @@ function viewPatient(id) {
 }
 function quickOrder(pid) { S._quickOrderPt=pid; nav('orders'); }
 
-let orderPtId='', orderPanels=[];
+let orderPtId='', orderPanels=[], orderTubes=[];
+
+// Standard tube/container options a student can choose from when manually
+// assigning a test to a tube. Deliberately a plain list with no default and
+// no mapping back to any test -- selection is always a manual decision.
+const TUBE_TYPE_OPTIONS = [
+  'EDTA (lavender)',
+  'EDTA (pink transfusion)',
+  'Citrate (blue)',
+  'SST (gold)',
+  'Grey (sodium fluoride)',
+  'Green (Li-Heparin)',
+  'Urine cup (random)',
+  'Urine cup (sterile, 60 mL)',
+  'Sterile urine cup (clean-catch or catheter)',
+  'Nasal/nasopharyngeal swab',
+  'Other (specify)'
+];
+
+function unassignedPanels() {
+  const assigned = new Set(orderTubes.flatMap(t=>t.panelKeys));
+  return orderPanels.filter(k=>!assigned.has(k));
+}
+function addOrderTube() {
+  orderTubes.push({id:'TUBE'+Date.now()+Math.random().toString(36).slice(2,6), type:'', customType:'', panelKeys:[]});
+  renderOrders();
+}
+function removeOrderTube(tid) {
+  orderTubes = orderTubes.filter(t=>t.id!==tid);
+  renderOrders();
+}
+function setTubeType(tid, val) {
+  const t=orderTubes.find(x=>x.id===tid); if(t) t.type=val;
+  renderOrders();
+}
+function setTubeCustomType(tid, val) {
+  const t=orderTubes.find(x=>x.id===tid); if(t) t.customType=val;
+}
+function assignPanelToTube(tid, pk) {
+  orderTubes.forEach(t=>{ const j=t.panelKeys.indexOf(pk); if(j>=0) t.panelKeys.splice(j,1); });
+  const t=orderTubes.find(x=>x.id===tid); if(t) t.panelKeys.push(pk);
+  renderOrders();
+}
+function unassignPanel(pk) {
+  orderTubes.forEach(t=>{ const j=t.panelKeys.indexOf(pk); if(j>=0) t.panelKeys.splice(j,1); });
+  renderOrders();
+}
+function newTubeForPanel(pk) {
+  orderTubes.forEach(t=>{ const j=t.panelKeys.indexOf(pk); if(j>=0) t.panelKeys.splice(j,1); });
+  orderTubes.push({id:'TUBE'+Date.now()+Math.random().toString(36).slice(2,6), type:'', customType:'', panelKeys:[pk]});
+  renderOrders();
+}
+function canSubmitOrder() {
+  if(!orderPtId||!orderPanels.length) return false;
+  if(unassignedPanels().length) return false;
+  return orderTubes.every(t=>t.type && (t.type!=='Other (specify)' || t.customType.trim()));
+}
+
+function renderTubeAssignment() {
+  if(!orderPanels.length) return '';
+  const unassigned = unassignedPanels();
+  const unassignedCard = unassigned.length
+    ? '<div class="card" style="border-style:dashed;border-color:#854f0b"><div class="card-title" style="color:#854f0b"><i class="ti ti-alert-triangle"></i>Not yet assigned to a tube</div>'+
+      unassigned.map(pk=>
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
+        '<span>'+PANELS[pk].name+'</span>'+
+        '<span style="display:flex;gap:6px;align-items:center">'+
+        (orderTubes.length
+          ? '<select onchange="if(this.value){assignPanelToTube(this.value,\''+pk+'\');}" style="padding:3px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:11px;background:#fff;color:#111;font-family:inherit">'+
+            '<option value="">Add to existing tube...</option>'+
+            orderTubes.map(t=>'<option value="'+t.id+'">'+(t.type||'(tube type not set)')+'</option>').join('')+
+            '</select>'
+          : '')+
+        '<button class="btn btn-sm" onclick="newTubeForPanel(\''+pk+'\')"><i class="ti ti-plus"></i>New tube</button>'+
+        '</span></div>'
+      ).join('')+'</div>'
+    : '';
+  const tubeCards = orderTubes.map(t=>{
+    const panelChips = t.panelKeys.map(pk=>
+      '<span class="chip selected" style="cursor:default">'+PANELS[pk].name+
+      ' <i class="ti ti-x" style="cursor:pointer;margin-left:4px" onclick="unassignPanel(\''+pk+'\')"></i></span>'
+    ).join(' ');
+    const typeSelect = '<select onchange="setTubeType(\''+t.id+'\',this.value)" style="flex:1;padding:5px 8px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;background:#fff;color:#111;font-family:inherit">'+
+      '<option value="">-- Select tube type --</option>'+
+      TUBE_TYPE_OPTIONS.map(opt=>'<option '+(t.type===opt?'selected':'')+'>'+opt+'</option>').join('')+
+      '</select>';
+    const customInput = t.type==='Other (specify)'
+      ? '<input placeholder="Describe tube/container" value="'+(t.customType||'').replace(/"/g,'&quot;')+'" oninput="setTubeCustomType(\''+t.id+'\',this.value)" style="margin-top:6px;padding:5px 8px;border:0.5px solid #ccc;border-radius:6px;font-size:12px;width:100%;background:#fff;color:#111;font-family:inherit">'
+      : '';
+    const otherUnassigned = unassignedPanels();
+    const addOptions = otherUnassigned.length
+      ? '<select onchange="if(this.value){assignPanelToTube(\''+t.id+'\',this.value);}" style="margin-top:6px;padding:4px 6px;border:0.5px solid #ccc;border-radius:5px;font-size:11px;background:#fff;color:#111;font-family:inherit">'+
+        '<option value="">+ Add a test to this tube...</option>'+
+        otherUnassigned.map(pk=>'<option value="'+pk+'">'+PANELS[pk].name+'</option>').join('')+
+        '</select>'
+      : '';
+    const warn = !t.type ? '<div style="font-size:11px;color:#854f0b;margin-top:4px"><i class="ti ti-alert-triangle"></i> Tube type not yet selected</div>' : '';
+    return '<div class="card">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
+      '<div style="flex:1">'+typeSelect+customInput+'</div>'+
+      '<button class="btn btn-sm btn-danger" onclick="removeOrderTube(\''+t.id+'\')"><i class="ti ti-trash"></i></button></div>'+
+      '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px">'+(panelChips||'<span style="font-size:11px;color:#666">No tests assigned yet</span>')+'</div>'+
+      addOptions + warn +
+      '</div>';
+  }).join('');
+  return '<div class="card-title" style="margin:14px 0 8px"><i class="ti ti-test-pipe"></i>Assign Tests to Tubes</div>'+
+    '<div class="info-box">Assign each test to the tube it was actually collected in. Tests placed in the same tube share one accession number. Nothing here is assumed for you -- choose the tube type and its tests yourself.</div>'+
+    unassignedCard + tubeCards +
+    '<button class="btn" style="width:100%;margin-top:4px" onclick="addOrderTube()"><i class="ti ti-plus"></i>Add Another Tube</button>';
+}
+
 function renderOrders() {
   if(S._quickOrderPt){orderPtId=S._quickOrderPt;S._quickOrderPt=null;}
   document.getElementById('topbar-right').innerHTML='';
@@ -855,13 +1150,11 @@ function renderOrders() {
       panels.map(([k,v])=>'<span class="chip '+(orderPanels.includes(k)?'selected':'')+'" onclick="togglePanel(\''+k+'\')">'+v.name+'</span>').join('')+
       '</div></div>';
   }).join('');
-  const tubes=[...new Set(orderPanels.map(k=>PANELS[k]&&PANELS[k].tube).filter(Boolean))];
-  const tubeHtml=tubes.length?'<div class="card"><div class="card-title"><i class="ti ti-test-pipe"></i>Tubes Required</div>'+
-    tubes.map(t=>'<div style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px"><i class="ti ti-test-pipe"></i>'+t+'</div>').join('')+'</div>':'';
+  const ready = canSubmitOrder();
   document.getElementById('content').innerHTML=
     '<div class="grid2"><div>'+
     '<div class="card"><div class="card-title"><i class="ti ti-user"></i>Select Patient</div>'+
-    '<div class="field"><label>Patient</label><select id="orderPtSel" onchange="orderPtId=this.value;orderPanels=[];renderOrders()">'+
+    '<div class="field"><label>Patient</label><select id="orderPtSel" onchange="orderPtId=this.value;orderPanels=[];orderTubes=[];renderOrders()">'+
     '<option value="">-- Select --</option>'+
     S.patients.map(p=>'<option value="'+p.id+'" '+(p.id===orderPtId?'selected':'')+'>'+ptName(p)+' ('+p.id+')</option>').join('')+
     '</select></div>'+(pt?'<div class="info-box"><strong>'+ptName(pt)+'</strong> -- '+sexLabel(pt.sex)+', Age '+age(pt.dob)+'<br>'+(pt.ward||'')+' | '+(pt.physician||'')+'</div>':'')+
@@ -869,55 +1162,93 @@ function renderOrders() {
     '<div class="field"><label>Clinical Indication</label><textarea id="orderInd" placeholder="e.g. Rule out anemia, pre-op workup..."></textarea></div>'+
     '<div class="grid2"><div class="field"><label>Priority</label><select id="orderPri"><option>Routine</option><option>Urgent</option><option>STAT</option></select></div>'+
     '<div class="field"><label>Collection Date</label><input type="date" id="orderDate" value="'+today()+'"></div></div></div></div>'+
-    '<div><div class="card"><div class="card-title"><i class="ti ti-clipboard-list"></i>Test Panels</div>'+panelSections+'</div>'+tubeHtml+
-    '<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="submitOrder()" '+(!orderPtId||!orderPanels.length?'disabled':'')+'>'+
+    '<div><div class="card"><div class="card-title"><i class="ti ti-clipboard-list"></i>Test Panels</div>'+panelSections+'</div>'+renderTubeAssignment()+
+    '<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="submitOrder()" '+(ready?'':'disabled')+'>'+
     '<i class="ti ti-send"></i>Submit Order'+(orderPanels.length?' ('+orderPanels.length+')':'')+
     '</button></div></div>';
 }
-function togglePanel(k) { const i=orderPanels.indexOf(k); if(i>=0) orderPanels.splice(i,1); else orderPanels.push(k); renderOrders(); }
+function togglePanel(k) {
+  const i=orderPanels.indexOf(k);
+  if(i>=0){
+    orderPanels.splice(i,1);
+    orderTubes.forEach(t=>{ const j=t.panelKeys.indexOf(k); if(j>=0) t.panelKeys.splice(j,1); });
+  } else {
+    orderPanels.push(k);
+  }
+  renderOrders();
+}
 function submitOrder() {
-  if(!orderPtId||!orderPanels.length) return;
-  orderPanels.forEach(pk=>{
-    const panel=PANELS[pk];
-    S.orders.push({id:'ORD-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),patientId:orderPtId,
-      panel:panel.name,panelKey:pk,dept:panel.dept,tests:panel.tests,tube:panel.tube,
-      priority:document.getElementById('orderPri').value,indication:document.getElementById('orderInd').value,
-      date:document.getElementById('orderDate').value,status:'ordered',ts:Date.now(),accession:null});
+  if(!canSubmitOrder()) return;
+  const groupTs = Date.now();
+  orderTubes.forEach(t=>{
+    const groupId = 'GRP-'+groupTs+'-'+Math.random().toString(36).slice(2,6);
+    const tubeLabel = t.type==='Other (specify)' ? t.customType.trim() : t.type;
+    t.panelKeys.forEach(pk=>{
+      const panel=PANELS[pk];
+      S.orders.push({id:'ORD-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),patientId:orderPtId,
+        panel:panel.name,panelKey:pk,dept:panel.dept,tests:panel.tests,tube:tubeLabel,
+        priority:document.getElementById('orderPri').value,indication:document.getElementById('orderInd').value,
+        date:document.getElementById('orderDate').value,status:'ordered',ts:Date.now(),accession:null,
+        collectionGroupId:groupId});
+    });
   });
-  const count=orderPanels.length; orderPanels=[]; orderPtId='';
+  const count=orderPanels.length; orderPanels=[]; orderTubes=[]; orderPtId='';
   alert(count+' order'+(count>1?'s':'')+' submitted.'); nav('accession');
+}
+
+
+// Returns all orders sharing o's collectionGroupId (same physical tube) that
+// are still in the given status -- or just [o] if it isn't part of a group.
+// Used so accessioning and receiving act on the whole tube at once instead
+// of test-by-test.
+function groupSiblingOrders(o, status) {
+  if(!o.collectionGroupId) return [o];
+  return S.orders.filter(x=>x.collectionGroupId===o.collectionGroupId && x.status===status);
 }
 
 function renderAccession() {
   document.getElementById('topbar-right').innerHTML='';
   const pending=S.orders.filter(o=>o.status==='ordered');
-  const rows=pending.length?pending.map(o=>{
+  const seen=new Set();
+  const rowsArr=[];
+  pending.forEach(o=>{
+    if(seen.has(o.id)) return;
+    const group=groupSiblingOrders(o,'ordered');
+    group.forEach(g=>seen.add(g.id));
     const pt=S.patients.find(p=>p.id===o.patientId);
-    return '<tr><td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?pt.ward:'')+'</span></td>'+
-      '<td>'+o.panel+'</td>'+
+    const panelLabel=group.map(g=>g.panel).join(' + ');
+    const groupBadge=group.length>1?' <span class="badge badge-purple">'+group.length+' tests, 1 tube</span>':'';
+    rowsArr.push('<tr><td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?pt.ward:'')+'</span></td>'+
+      '<td>'+panelLabel+groupBadge+'</td>'+
       '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
-      '<td style="font-size:11px">'+o.tube+'</td><td>'+o.date+'</td><td>'+o.dept+'</td>'+
+      '<td style="font-size:11px">'+o.tube+'</td><td>'+o.date+'</td><td>'+group.map(g=>g.dept).join('/')+'</td>'+
       '<td><button class="btn btn-sm btn-primary" onclick="accessionOrder(\''+o.id+'\')"><i class="ti ti-barcode"></i>Accession</button> '+
-      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>';
-  }).join(''):'<tr><td colspan="7"><div class="empty">No orders pending accessioning</div></td></tr>';
+      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>');
+  });
+  const rows=rowsArr.length?rowsArr.join(''):'<tr><td colspan="7"><div class="empty">No orders pending accessioning</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
     '<th>Patient</th><th>Panel</th><th>Priority</th><th>Tube</th><th>Date</th><th>Dept</th><th></th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function accessionOrder(oid) {
+async function accessionOrder(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const group=groupSiblingOrders(o,'ordered');
+  const ok=await acquireLocks(group.map(g=>g.id)); if(!ok) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
   const acc=genAcc(o.dept);
   const deptNames={H:'Hematology',O:'Coagulation',C:'Chemistry',U:'Urinalysis',T:'Transfusion',M:'Microbiology/POCT'};
+  const panelLabel=group.map(g=>g.panel).join(' + ');
+  const groupNote=group.length>1?'<div class="info-box" style="margin-bottom:12px"><i class="ti ti-test-pipe"></i> '+group.length+' tests collected in the same '+o.tube+' tube -- all will share this one accession number.</div>':'';
   openModal('Accession Specimen',
+    groupNote+
     '<div class="grid2" style="margin-bottom:12px">'+
     '<div><div class="stat-label">Patient</div><div><strong>'+ptName(pt)+'</strong></div></div>'+
-    '<div><div class="stat-label">Panel</div><div>'+o.panel+'</div></div>'+
+    '<div><div class="stat-label">Panel'+(group.length>1?'s':'')+'</div><div>'+panelLabel+'</div></div>'+
     '<div><div class="stat-label">Accession #</div><div style="font-family:monospace;font-size:16px;font-weight:500;color:#185fa5">'+acc+'</div></div>'+
-    '<div><div class="stat-label">Dept</div><div>'+o.dept+'</div></div></div>'+
-    '<div class="info-box" style="margin-bottom:12px">Breakdown: '+acc.slice(0,2)+' Year | RD Facility | '+acc.slice(4,7)+' Day | '+o.dept+' '+(deptNames[o.dept]||o.dept)+' | '+acc.slice(-5)+' Sequential</div>'+
+    '<div><div class="stat-label">Dept</div><div>'+group.map(g=>g.dept).join('/')+'</div></div></div>'+
+    '<div class="info-box" style="margin-bottom:12px">Breakdown: '+acc.slice(0,2)+' Year | '+S.site+' -- '+siteName(S.site)+' | '+acc.slice(4,7)+' Day | '+o.dept+' '+(deptNames[o.dept]||o.dept)+' | '+acc.slice(-7,-2)+' Sequential | '+acc.slice(-2)+' Random</div>'+
     '<div class="grid2"><div class="field"><label>Received at lab (time)</label><input id="accTime" value="'+nowTime()+'"></div>'+
     '<div class="field"><label>Received by (initials)</label><input id="accBy" placeholder="e.g. JM"></div></div>'+
     '<div class="field"><label>Initial specimen appearance</label><select id="accApp">'+
@@ -927,10 +1258,13 @@ function accessionOrder(oid) {
     [{label:'Cancel',cls:'btn',fn:closeModal},
      {label:'Reject',cls:'btn btn-danger',fn:()=>{const app=document.getElementById('accApp').value;closeModal();rejectOrderModal(oid,app);}},
      {label:'Confirm Accession',cls:'btn btn-primary',fn:()=>{
-      o.accession=acc; o.status='accessioned';
-      o.accessionedBy=document.getElementById('accBy').value;
-      o.accessionTime=document.getElementById('accTime').value;
-      o.specimenNotes=document.getElementById('accApp').value+(document.getElementById('accNotes').value?' -- '+document.getElementById('accNotes').value:'');
+      const by=document.getElementById('accBy').value;
+      const time=document.getElementById('accTime').value;
+      const notes=document.getElementById('accApp').value+(document.getElementById('accNotes').value?' -- '+document.getElementById('accNotes').value:'');
+      group.forEach(g=>{
+        g.accession=acc; g.status='accessioned';
+        g.accessionedBy=by; g.accessionTime=time; g.specimenNotes=notes;
+      });
       closeModal(); nav('receive');
     }}]);
 }
@@ -938,17 +1272,24 @@ function accessionOrder(oid) {
 function renderReceive() {
   document.getElementById('topbar-right').innerHTML='';
   const ready=S.orders.filter(o=>o.status==='accessioned');
-  const rows=ready.length?ready.map(o=>{
+  const seen=new Set();
+  const rowsArr=[];
+  ready.forEach(o=>{
+    if(seen.has(o.id)) return;
+    const group=groupSiblingOrders(o,'accessioned');
+    group.forEach(g=>seen.add(g.id));
     const pt=S.patients.find(p=>p.id===o.patientId);
-    return '<tr>'+
+    const panelLabel=group.map(g=>g.panel).join(' + ');
+    rowsArr.push('<tr>'+
       '<td style="font-family:monospace;font-size:10px">'+o.accession+'</td>'+
       '<td><strong>'+ptName(pt)+'</strong><br><span style="font-size:10px;color:#666">'+(pt?sexLabel(pt.sex)+', Age '+age(pt.dob):'')+'</span></td>'+
-      '<td>'+o.panel+'</td><td style="font-size:11px">'+o.tube+'</td>'+
+      '<td>'+panelLabel+'</td><td style="font-size:11px">'+o.tube+'</td>'+
       '<td style="font-size:11px;color:#666">'+(o.accessionTime||'--')+' ('+(o.accessionedBy||'?')+')</td>'+
       '<td><span class="badge '+(o.priority==='STAT'?'badge-danger':o.priority==='Urgent'?'badge-warning':'badge-gray')+'">'+o.priority+'</span></td>'+
       '<td><button class="btn btn-sm btn-primary" onclick="receiveSpecimen(\''+o.id+'\')"><i class="ti ti-inbox"></i>Receive</button> '+
-      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>';
-  }).join(''):'<tr><td colspan="7"><div class="empty">No accessioned specimens awaiting receipt</div></td></tr>';
+      '<button class="btn btn-sm btn-danger" onclick="rejectOrderModal(\''+o.id+'\',\'\')"><i class="ti ti-ban"></i>Reject</button></td></tr>');
+  });
+  const rows=rowsArr.length?rowsArr.join(''):'<tr><td colspan="7"><div class="empty">No accessioned specimens awaiting receipt</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="info-box" style="margin-bottom:14px"><i class="ti ti-info-circle"></i> Enter original collection time, date, and collector ID before specimens proceed to result entry.</div>'+
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
@@ -956,11 +1297,14 @@ function renderReceive() {
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function receiveSpecimen(oid) {
+async function receiveSpecimen(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const group=groupSiblingOrders(o,'accessioned');
+  const ok=await acquireLocks(group.map(g=>g.id)); if(!ok) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
+  const panelLabel=group.map(g=>g.panel).join(' + ');
   openModal('Receive Specimen -- '+o.accession,
-    '<div class="info-box" style="margin-bottom:14px"><strong>'+ptName(pt)+'</strong> | '+o.panel+' | '+o.tube+'</div>'+
+    '<div class="info-box" style="margin-bottom:14px"><strong>'+ptName(pt)+'</strong> | '+panelLabel+' | '+o.tube+'</div>'+
     '<div style="font-weight:500;font-size:12px;margin-bottom:10px">Collection information (as labelled on tube)</div>'+
     '<div class="grid2"><div class="field"><label>Collection Date *</label><input id="colDate" type="date" value="'+o.date+'"></div>'+
     '<div class="field"><label>Collection Time * (24hr, e.g. 1346)</label><input id="colTime" placeholder="1346" maxlength="4" inputmode="numeric"></div></div>'+
@@ -980,17 +1324,22 @@ function receiveSpecimen(oid) {
       const colId=document.getElementById('colId').value.trim();
       if(!colDate||!colTime||!colId){alert('Collection date, time, and collector ID are required.');return;}
       if(!/^\d{4}$/.test(colTime)){alert('Collection time must be 4 digits, 24-hour format (e.g. 1346).');return;}
-      o.collectionDate=colDate; o.collectionTime=colTime; o.collectorId=colId;
-      o.collectorName=document.getElementById('colName').value.trim();
-      o.receiptCondition=document.getElementById('colCond').value;
-      o.receiptNotes=document.getElementById('colNotes').value.trim();
-      o.receivedAt=nowTime(); o.status='received';
+      const colName=document.getElementById('colName').value.trim();
+      const colCond=document.getElementById('colCond').value;
+      const colNotes=document.getElementById('colNotes').value.trim();
+      const recvAt=nowTime();
+      group.forEach(g=>{
+        g.collectionDate=colDate; g.collectionTime=colTime; g.collectorId=colId;
+        g.collectorName=colName; g.receiptCondition=colCond; g.receiptNotes=colNotes;
+        g.receivedAt=recvAt; g.status='received';
+      });
       closeModal(); nav('results');
     }}]);
 }
 
-function rejectOrderModal(oid, prefillCond) {
+async function rejectOrderModal(oid, prefillCond) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const ok=await acquireLocks([oid]); if(!ok) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
   const reasonOpts=REJECTION_REASONS.map(r=>'<option value="'+r.id+'">'+r.label+'</option>').join('');
   openModal('Reject Specimen -- '+(o.accession||o.panel),
@@ -1018,7 +1367,8 @@ function rejectOrderModal(oid, prefillCond) {
 }
 
 function renderRejected() {
-  document.getElementById('topbar-right').innerHTML='';
+  document.getElementById('topbar-right').innerHTML=
+    '<button class="btn" onclick="printableRejectedList()"><i class="ti ti-printer"></i>Print</button>';
   const rejected=S.orders.filter(o=>o.status==='rejected');
   const rows=rejected.length?rejected.map(o=>{
     const pt=S.patients.find(p=>p.id===o.patientId);
@@ -1035,6 +1385,41 @@ function renderRejected() {
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
     '<th>Accession #</th><th>Patient</th><th>Panel</th><th>Rejection Reason</th><th>Recollect?</th><th>By</th><th>Notified</th><th>Time</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function printableRejectedList() {
+  const rejected=S.orders.filter(o=>o.status==='rejected');
+  const rows=rejected.length?rejected.map(o=>{
+    const pt=S.patients.find(p=>p.id===o.patientId);
+    return '<tr><td>'+(o.accession||'--')+'</td><td>'+ptName(pt)+'</td><td>'+o.panel+'</td>'+
+      '<td>'+(o.rejectionLabel||'--')+'</td><td>'+(o.recollectRequired?'Yes':'No')+'</td>'+
+      '<td>'+(o.rejectedBy||'--')+'</td><td>'+(o.rejectionNotified||'--')+'</td><td>'+(o.rejectedAt||'--')+'</td></tr>';
+  }).join(''):'<tr><td colspan="8">No rejected specimens</td></tr>';
+  const html=
+    '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'+
+    '<title>Rejected Specimens Log</title>'+
+    '<style>'+
+    '*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:28px;max-width:900px;margin:0 auto}'+
+    'h1{font-size:16px;margin-bottom:2px}'+
+    '.sub{font-size:11px;color:#555;margin-bottom:18px}'+
+    'table{width:100%;border-collapse:collapse;margin-bottom:6px}'+
+    'th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}'+
+    'th{background:#f0f0ee}'+
+    '.section-title{font-size:13px;font-weight:600;margin:18px 0 6px}'+
+    '.footer{margin-top:24px;font-size:10px;color:#666;text-align:center}'+
+    '@media print{body{padding:0 16px}}'+
+    '</style></head><body>'+
+    '<h1>Red Deer Polytechnic -- Educational Laboratory</h1>'+
+    '<div class="sub">Rejected Specimens Log -- '+siteName(S.site)+' -- Generated '+today()+' -- For educational use only, not for clinical decisions</div>'+
+    '<div class="section-title">Rejected Specimens ('+rejected.length+')</div>'+
+    '<table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th><th>Rejection Reason</th><th>Recollect?</th><th>By</th><th>Notified</th><th>Time</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\\/script>'+
+    '</body></html>';
+  const w=window.open('','_blank');
+  if(!w){ alert('Please allow pop-ups to print the rejected specimens list.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 // --- Site Batches (send-out specimen tracking) ---
@@ -1212,7 +1597,7 @@ function printableBatchManifest(batchId) {
     '<div class="sub">Site Batch Manifest -- For educational use only, not for clinical decisions</div>'+
     '<table class="demo-table">'+
     '<tr><th>Batch ID</th><td>'+b.id+'</td><th>Status</th><td>'+b.status+'</td></tr>'+
-    '<tr><th>Origin</th><td>Red Deer Regional Health Centre (RDRHC) -- Simulated Lab</td><th>Destination</th><td>'+b.destination+'</td></tr>'+
+    '<tr><th>Origin</th><td>'+siteName(S.site)+' -- Simulated Lab</td><th>Destination</th><td>'+b.destination+'</td></tr>'+
     '<tr><th>Courier</th><td>'+(b.courier||'--')+'</td><th>Packaging Condition</th><td>'+b.packagingCondition+'</td></tr>'+
     '<tr><th>Created</th><td>'+b.createdAt+'</td><th>Packaged</th><td>'+(b.packagedAt||'--')+'</td></tr>'+
     '<tr><th>Received</th><td>'+(b.receivedAt||'--')+'</td><th></th><td></td></tr>'+
@@ -1249,8 +1634,9 @@ function renderResults() {
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function enterResults(oid) {
+async function enterResults(oid) {
   const o=S.orders.find(x=>x.id===oid); if(!o) return;
+  const ok=await acquireLocks([oid]); if(!ok) return;
   const pt=S.patients.find(p=>p.id===o.patientId);
   _currentResultsPt = pt;
   _repeatableRows = {};
@@ -1965,6 +2351,7 @@ function enterSandbox() {
   S.patients=[]; S.orders=[]; S.results=[]; S.batches=[];
   S.testCounter={H:0,O:0,C:0,U:0,T:0,M:0,R:0};
   S._sandbox=true;
+  pendingUpdateAvailable=false;
   nav('dashboard');
 }
 
@@ -1977,6 +2364,7 @@ function exitSandbox() {
   }
   _preSandboxState=null;
   S._sandbox=false;
+  pendingUpdateAvailable=false;
   nav('dashboard');
 }
 
@@ -2008,6 +2396,7 @@ function updateSandboxUI() {
 
 S.patients=[...MOCK_PATIENTS];
 document.getElementById('syncDay').value = todayWeekdayKey();
+populateSiteSelect();
 render();
 
 </script>
