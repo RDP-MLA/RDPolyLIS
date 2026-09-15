@@ -1206,6 +1206,36 @@ function groupSiblingOrders(o, status) {
   return S.orders.filter(x=>x.collectionGroupId===o.collectionGroupId && x.status===status);
 }
 
+// Returns every order collected in the same physical tube as o, regardless
+// of each order's current status. Unlike groupSiblingOrders (used for
+// accessioning/receiving, where the whole group moves in lockstep), a
+// tube's individual tests can be at different points in their own result
+// workflow by the time it's batched for send-out -- but that doesn't
+// change which physical tube they're in, so batching a specimen always
+// means batching every test that shares its tube, together.
+function sameTubeSiblings(o) {
+  if(!o.collectionGroupId) return [o];
+  return S.orders.filter(x=>x.collectionGroupId===o.collectionGroupId);
+}
+
+// Groups a batch's specimen entries back into their originating tubes
+// (by collectionGroupId), so the same physical tube's tests are always
+// displayed and handled as one line -- matching how they were accessioned
+// and received. Falls back to one entry per specimen if it has no group id
+// (e.g. a batch entry added before tube-grouping existed).
+function groupBatchSpecimens(b) {
+  const seen=new Set(); const groups=[];
+  b.specimens.forEach(s=>{
+    const key=s.collectionGroupId||('single:'+s.orderId);
+    if(seen.has(key)) return;
+    seen.add(key);
+    const members=b.specimens.filter(x=>(x.collectionGroupId||('single:'+x.orderId))===key);
+    groups.push({key, accession:members[0].accession, patientName:members[0].patientName,
+      panels:members.map(m=>m.panel), orderIds:members.map(m=>m.orderId)});
+  });
+  return groups;
+}
+
 function renderAccession() {
   document.getElementById('topbar-right').innerHTML='';
   const pending=S.orders.filter(o=>o.status==='ordered');
@@ -1434,7 +1464,7 @@ function renderBatches() {
       '<td style="font-family:monospace;font-size:11px">'+b.id.slice(-6)+'</td>'+
       '<td>'+b.destination+'</td>'+
       '<td style="font-size:11px">'+b.packagingCondition+'</td>'+
-      '<td>'+b.specimens.length+'</td>'+
+      '<td>'+groupBatchSpecimens(b).length+'</td>'+
       '<td><span class="badge '+statusCls+'">'+b.status+'</span></td>'+
       '<td style="font-size:11px;color:#666">'+(b.packagedAt||'--')+'</td>'+
       '<td style="font-size:11px;color:#666">'+(b.receivedAt||'--')+'</td>'+
@@ -1475,23 +1505,31 @@ function openNewBatchModal(pendingOid) {
 }
 
 function addToBatch(oid) {
+  const o=S.orders.find(x=>x.id===oid);
+  const group=o?sameTubeSiblings(o):[];
+  const groupNote=group.length>1?'<div class="info-box" style="margin-bottom:10px"><i class="ti ti-test-pipe"></i> This tube has '+group.length+' tests ('+group.map(g=>g.panel).join(', ')+') -- they will be added to the batch together and can only be sent, or removed, as one specimen.</div>':'';
   const openBatches = S.batches.filter(b=>b.status==='Open');
   const options = openBatches.map(b=>
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
-    '<span>'+b.id.slice(-6)+' -- '+b.destination+' ('+b.specimens.length+' item'+(b.specimens.length!==1?'s':'')+')</span>'+
+    '<span>'+b.id.slice(-6)+' -- '+b.destination+' ('+groupBatchSpecimens(b).length+' specimen'+(groupBatchSpecimens(b).length!==1?'s':'')+')</span>'+
     '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+b.id+'\',\''+oid+'\')"><i class="ti ti-plus"></i>Add here</button></div>'
   ).join('');
   openModal('Add to Site Batch',
+    groupNote+
     (openBatches.length?options:'<div class="empty">No open batches yet</div>')+
     '<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="closeModal();openNewBatchModal(\''+oid+'\');"><i class="ti ti-plus"></i>New Batch</button>',
     [{label:'Cancel',cls:'btn',fn:closeModal}]);
 }
 
 function _pushSpecimenToBatch(b, orderId) {
-  if(b.specimens.some(s=>s.orderId===orderId)) return;
   const o=S.orders.find(x=>x.id===orderId); if(!o) return;
-  const pt=S.patients.find(p=>p.id===o.patientId);
-  b.specimens.push({orderId:o.id, accession:o.accession||'--', patientName:ptName(pt), panel:o.panel});
+  // Add every test sharing this tube, together -- a specimen either goes
+  // into the batch whole, or not at all.
+  sameTubeSiblings(o).forEach(g=>{
+    if(b.specimens.some(s=>s.orderId===g.id)) return;
+    const pt=S.patients.find(p=>p.id===g.patientId);
+    b.specimens.push({orderId:g.id, accession:g.accession||'--', patientName:ptName(pt), panel:g.panel, collectionGroupId:g.collectionGroupId||null});
+  });
 }
 function addSpecimenToBatch(batchId, orderId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
@@ -1500,7 +1538,11 @@ function addSpecimenToBatch(batchId, orderId) {
 }
 function removeSpecimenFromBatch(batchId, orderId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
-  b.specimens=b.specimens.filter(s=>s.orderId!==orderId);
+  const entry=b.specimens.find(s=>s.orderId===orderId);
+  const gid=entry?entry.collectionGroupId:null;
+  // Removing one test from a shared tube removes the whole tube -- you
+  // can't pull one test back out and leave the rest shipped.
+  b.specimens=b.specimens.filter(s=> gid ? s.collectionGroupId!==gid : s.orderId!==orderId);
   openBatchDetail(batchId);
 }
 
@@ -1512,16 +1554,25 @@ function filterBatchSpecimens(batchId) {
   const q=(inputEl.value||'').toLowerCase().trim();
   if(!q){ resultsEl.innerHTML=''; return; }
   const already=new Set(b.specimens.map(s=>s.orderId));
-  const matches=S.orders.filter(o=>o.accession&&!already.has(o.id)).filter(o=>{
+  const candidates=S.orders.filter(o=>o.accession&&!already.has(o.id)).filter(o=>{
     const pt=S.patients.find(p=>p.id===o.patientId);
     const hay=(o.accession+' '+(pt?ptName(pt):'')+' '+o.panel).toLowerCase();
     return hay.includes(q);
-  }).slice(0,8);
-  resultsEl.innerHTML=matches.length?matches.map(o=>{
-    const pt=S.patients.find(p=>p.id===o.patientId);
+  });
+  const seen=new Set(); const results=[];
+  candidates.forEach(o=>{
+    if(seen.has(o.id)) return;
+    const group=sameTubeSiblings(o);
+    group.forEach(g=>seen.add(g.id));
+    results.push({rep:o, group});
+  });
+  resultsEl.innerHTML=results.length?results.slice(0,8).map(({rep,group})=>{
+    const pt=S.patients.find(p=>p.id===rep.patientId);
+    const panelLabel=group.map(g=>g.panel).join(' + ');
+    const tag=group.length>1?' <span class="badge badge-purple">'+group.length+' tests, 1 tube</span>':'';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #e5e5e5;font-size:12px">'+
-      '<span><span style="font-family:monospace">'+o.accession+'</span> -- '+ptName(pt)+' -- '+o.panel+' <span class="badge '+statusBadge(o.status)+'" style="margin-left:4px">'+statusLabel(o.status)+'</span></span>'+
-      '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+batchId+'\',\''+o.id+'\')"><i class="ti ti-plus"></i>Add</button></div>';
+      '<span><span style="font-family:monospace">'+rep.accession+'</span> -- '+ptName(pt)+' -- '+panelLabel+tag+' <span class="badge '+statusBadge(rep.status)+'" style="margin-left:4px">'+statusLabel(rep.status)+'</span></span>'+
+      '<button class="btn btn-sm btn-primary" onclick="addSpecimenToBatch(\''+batchId+'\',\''+rep.id+'\')"><i class="ti ti-plus"></i>Add</button></div>';
   }).join(''):'<div class="empty" style="padding:10px 0">No matching specimens</div>';
 }
 
@@ -1540,9 +1591,11 @@ function receiveBatch(batchId) {
 
 function openBatchDetail(batchId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
-  const specRows=b.specimens.length?b.specimens.map(s=>
-    '<tr><td style="font-family:monospace;font-size:11px">'+s.accession+'</td><td>'+s.patientName+'</td><td>'+s.panel+'</td>'+
-    (b.status==='Open'?'<td><button class="btn btn-sm btn-danger" onclick="removeSpecimenFromBatch(\''+b.id+'\',\''+s.orderId+'\')"><i class="ti ti-x"></i></button></td>':'<td></td>')+
+  const groups=groupBatchSpecimens(b);
+  const specRows=groups.length?groups.map(g=>
+    '<tr><td style="font-family:monospace;font-size:11px">'+g.accession+'</td><td>'+g.patientName+'</td>'+
+    '<td>'+g.panels.join(' + ')+(g.panels.length>1?' <span class="badge badge-purple">'+g.panels.length+' tests, 1 tube</span>':'')+'</td>'+
+    (b.status==='Open'?'<td><button class="btn btn-sm btn-danger" onclick="removeSpecimenFromBatch(\''+b.id+'\',\''+g.orderIds[0]+'\')"><i class="ti ti-x"></i></button></td>':'<td></td>')+
     '</tr>'
   ).join(''):'<tr><td colspan="4"><div class="empty">No specimens added yet</div></td></tr>';
   const statusCls=b.status==='Open'?'badge-info':b.status==='In Transit'?'badge-warning':'badge-success';
@@ -1573,8 +1626,9 @@ function openBatchDetail(batchId) {
 
 function printableBatchManifest(batchId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
-  const rows=b.specimens.length?b.specimens.map(s=>
-    '<tr><td>'+s.accession+'</td><td>'+s.patientName+'</td><td>'+s.panel+'</td></tr>'
+  const groups=groupBatchSpecimens(b);
+  const rows=groups.length?groups.map(g=>
+    '<tr><td>'+g.accession+'</td><td>'+g.patientName+'</td><td>'+g.panels.join(' + ')+'</td></tr>'
   ).join(''):'<tr><td colspan="3">No specimens</td></tr>';
   const html=
     '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'+
@@ -1602,7 +1656,7 @@ function printableBatchManifest(batchId) {
     '<tr><th>Created</th><td>'+b.createdAt+'</td><th>Packaged</th><td>'+(b.packagedAt||'--')+'</td></tr>'+
     '<tr><th>Received</th><td>'+(b.receivedAt||'--')+'</td><th></th><td></td></tr>'+
     '</table>'+
-    '<div class="section-title">Specimens in this batch ('+b.specimens.length+')</div>'+
+    '<div class="section-title">Specimens in this batch ('+groups.length+')</div>'+
     '<table><thead><tr><th>Accession #</th><th>Patient</th><th>Panel</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="footer">Red Deer Polytechnic -- MLA Program -- Generated '+today()+' -- FOR EDUCATIONAL USE ONLY, NOT FOR CLINICAL DECISIONS</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\\/script>'+
