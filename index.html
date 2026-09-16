@@ -1617,6 +1617,17 @@ function receiveBatch(batchId) {
   openBatchDetail(batchId);
 }
 
+function cancelBatch(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  if(b.status!=='Open'){ alert('Only an Open batch can be cancelled -- once packaged or received, it cannot be undone from here.'); return; }
+  const count=groupBatchSpecimens(b).length;
+  if(!confirm('Cancel this batch?\n\nDestination: '+b.destination+(count?'\nSpecimens in batch: '+count+' -- these will return to the Pending List and can be re-batched later.':'')+'\n\nThis cannot be undone.')) return;
+  S.batches=S.batches.filter(x=>x.id!==batchId);
+  closeModal();
+  updateBatchNavBadge();
+  nav('batches');
+}
+
 function openBatchDetail(batchId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
   const groups=groupBatchSpecimens(b);
@@ -1648,6 +1659,7 @@ function openBatchDetail(batchId) {
     {label:'Save',cls:'btn btn-primary',fn:()=>{saveToServer();}},
     {label:'Print Manifest',cls:'btn',fn:()=>{printableBatchManifest(b.id);}}];
   if(b.status==='Open') buttons.push({label:'Close & Package',cls:'btn btn-primary',fn:()=>{closeAndPackageBatch(b.id);}});
+  if(b.status==='Open') buttons.push({label:'Cancel Batch',cls:'btn btn-danger',fn:()=>{cancelBatch(b.id);}});
   if(b.status==='In Transit') buttons.push({label:'Receive',cls:'btn btn-success',fn:()=>{receiveBatch(b.id);}});
   openModal('Site Batch -- '+b.id.slice(-6), body, buttons);
 }
