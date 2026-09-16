@@ -937,7 +937,7 @@ function markCallback(rid) { const r=S.results.find(x=>x.id===rid); if(r) r.call
 
 let ptSearch='';
 function renderPatients() {
-  document.getElementById('topbar-right').innerHTML='<button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-user-plus"></i>Register Patient</button>';
+  document.getElementById('topbar-right').innerHTML='<button class="btn" onclick="openSamplePatients()"><i class="ti ti-flask-2"></i>Sample Patients</button> <button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-user-plus"></i>Register Patient</button>';
   const filtered=S.patients.filter(p=>(p.firstName+' '+p.lastName+' '+p.healthNum+' '+p.ward).toLowerCase().includes(ptSearch.toLowerCase()));
   const rows=filtered.length?filtered.map(p=>
     '<tr><td style="font-family:monospace;font-size:10px">'+p.id+'</td>'+
@@ -956,6 +956,34 @@ function renderPatients() {
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
     '<th>ID</th><th>Name</th><th>DOB</th><th>Age</th><th>Sex</th><th>Health #</th><th>Ward</th><th>Physician</th><th></th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function openSamplePatients() {
+  const existingIds = new Set(S.patients.map(p=>p.id));
+  const available = MOCK_PATIENTS.filter(p=>!existingIds.has(p.id));
+  const rows = available.length ? available.map(p=>
+    '<tr><td><strong>'+p.lastName+'</strong>, '+p.firstName+'</td>'+
+    '<td>'+p.dob+'</td><td>'+age(p.dob)+'</td>'+
+    '<td><span class="badge badge-gray">'+sexLabel(p.sex)+'</span></td>'+
+    '<td>'+(p.ward||'--')+'</td>'+
+    '<td><button class="btn btn-sm btn-primary" onclick="addSamplePatient(\''+p.id+'\')"><i class="ti ti-plus"></i>Add</button></td></tr>'
+  ).join('') : '<tr><td colspan="6"><div class="empty">All sample patients have been added</div></td></tr>';
+
+  openModal('Sample Patients',
+    '<div class="info-box"><i class="ti ti-info-circle"></i> Pre-built practice patients -- add individually or all at once.</div>'+
+    '<div style="overflow:hidden;border:0.5px solid #e5e5e5;border-radius:8px"><table><thead><tr>'+
+    '<th>Name</th><th>DOB</th><th>Age</th><th>Sex</th><th>Ward</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>',
+    [{label:'Add All',cls:'btn btn-primary',fn:()=>{ available.forEach(p=>S.patients.push(Object.assign({},p))); closeModal(); nav('patients'); }},
+     {label:'Close',cls:'btn',fn:closeModal}]
+  );
+}
+
+function addSamplePatient(pid) {
+  const p = MOCK_PATIENTS.find(x=>x.id===pid);
+  if(!p || S.patients.some(x=>x.id===pid)) return;
+  S.patients.push(Object.assign({},p));
+  openSamplePatients();
 }
 
 function openAddPatient() {
@@ -2448,7 +2476,6 @@ function updateSandboxUI() {
   }
 }
 
-S.patients=[...MOCK_PATIENTS];
 document.getElementById('syncDay').value = todayWeekdayKey();
 populateSiteSelect();
 render();
