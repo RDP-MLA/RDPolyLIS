@@ -1051,6 +1051,7 @@ function viewPatient(id) {
     (orderRows?'<table><thead><tr><th>Accession #</th><th>Panel</th><th>Date</th><th>Status</th></tr></thead><tbody>'+orderRows+'</tbody></table>':
     '<div class="empty" style="padding:12px">No orders</div>'),
     [{label:'Close',cls:'btn',fn:closeModal},
+     {label:'Delete Patient',cls:'btn btn-danger',fn:()=>{closeModal();deletePatient(id);}},
      {label:'New Order',cls:'btn btn-primary',fn:()=>{closeModal();quickOrder(id);}}]);
 }
 function quickOrder(pid) { S._quickOrderPt=pid; nav('orders'); }
@@ -1496,7 +1497,9 @@ function renderBatches() {
       '<td><span class="badge '+statusCls+'">'+b.status+'</span></td>'+
       '<td style="font-size:11px;color:#666">'+(b.packagedAt||'--')+'</td>'+
       '<td style="font-size:11px;color:#666">'+(b.receivedAt||'--')+'</td>'+
-      '<td><button class="btn btn-sm" onclick="openBatchDetail(\''+b.id+'\')"><i class="ti ti-eye"></i>View</button></td></tr>';
+      '<td><button class="btn btn-sm" onclick="openBatchDetail(\''+b.id+'\')"><i class="ti ti-eye"></i>View</button> '+
+      (b.status==='Received'?'<button class="btn btn-sm btn-danger" onclick="deleteReceivedBatch(\''+b.id+'\')"><i class="ti ti-trash"></i></button>':'')+
+      '</td></tr>';
   }).join(''):'<tr><td colspan="8"><div class="empty">No site batches yet -- create one to track specimens sent off-site</div></td></tr>';
   document.getElementById('content').innerHTML=
     '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr>'+
@@ -1628,6 +1631,24 @@ function cancelBatch(batchId) {
   nav('batches');
 }
 
+// A Received batch has already been confirmed as arrived at the destination
+// facility -- deleting it is an administrative correction (e.g. a batch was
+// logged against the wrong facility, or created by mistake), not a normal
+// workflow step, so it's kept separate from Cancel Batch (which only ever
+// applies to a batch that hasn't shipped yet). Deleting the record also
+// clears its specimens' batch membership, so they reappear on the Pending
+// List (per isOrderBatched/pendingOrders) and can be re-batched if needed.
+function deleteReceivedBatch(batchId) {
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  if(b.status!=='Received'){ alert('Only a batch marked Received can be deleted this way -- an Open batch uses Cancel Batch instead.'); return; }
+  const count=groupBatchSpecimens(b).length;
+  if(!confirm('Delete this received batch?\n\nDestination: '+b.destination+'\nReceived: '+(b.receivedAt||'--')+(count?'\nSpecimens in batch: '+count+' -- these will return to the Pending List.':'')+'\n\nThis permanently removes the batch record and cannot be undone.')) return;
+  S.batches=S.batches.filter(x=>x.id!==batchId);
+  closeModal();
+  updateBatchNavBadge();
+  nav('batches');
+}
+
 function openBatchDetail(batchId) {
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
   const groups=groupBatchSpecimens(b);
@@ -1661,6 +1682,7 @@ function openBatchDetail(batchId) {
   if(b.status==='Open') buttons.push({label:'Close & Package',cls:'btn btn-primary',fn:()=>{closeAndPackageBatch(b.id);}});
   if(b.status==='Open') buttons.push({label:'Cancel Batch',cls:'btn btn-danger',fn:()=>{cancelBatch(b.id);}});
   if(b.status==='In Transit') buttons.push({label:'Receive',cls:'btn btn-success',fn:()=>{receiveBatch(b.id);}});
+  if(b.status==='Received') buttons.push({label:'Delete Batch',cls:'btn btn-danger',fn:()=>{deleteReceivedBatch(b.id);}});
   openModal('Site Batch -- '+b.id.slice(-6), body, buttons);
 }
 
