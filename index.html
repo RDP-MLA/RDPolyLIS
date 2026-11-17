@@ -352,6 +352,58 @@ window.addEventListener('beforeunload', function(e) {
   }
 });
 
+// --- Delta saves ---
+// Sends the server only what changed on this device since the last
+// Save/Load (the baseline in lastSavedSnapshot): new or edited records,
+// the ids of deleted records, and specimens removed from batches. The
+// server applies exactly those changes. Two problems this fixes:
+//  1. Deletions/removals/clearing now stick. (The old full-state save was
+//     merged as a union, so anything already saved came back on next Save.)
+//  2. Records this device didn't touch aren't sent, so an out-of-date copy
+//     can't overwrite newer work another device saved to the same record.
+function buildSaveDelta() {
+  const base = lastSavedSnapshot ? JSON.parse(lastSavedSnapshot) : null;
+  const cur = JSON.parse(currentStateSnapshot());
+  const delta = { mode:'delta', upserts:{}, deletes:{}, batchSpecimenRemovals:{}, batchSpecimenAdds:{},
+    testCounter: cur.testCounter, site: cur.site };
+  ['patients','orders','results','batches'].forEach(coll=>{
+    const before = new Map(((base&&base[coll])||[]).map(x=>[x.id, x]));
+    const now = cur[coll] || [];
+    const nowIds = new Set(now.map(x=>x.id));
+    delta.upserts[coll] = now.filter(x=>{
+      const prev = before.get(x.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(x);
+    });
+    delta.deletes[coll] = [...before.keys()].filter(id=>!nowIds.has(id));
+  });
+  // For each changed batch, list exactly which specimens this device added
+  // and removed, so the server can apply just those to its own copy of the
+  // batch instead of trusting this device's possibly out-of-date full list.
+  delta.upserts.batches.forEach(nb=>{
+    const pb = ((base&&base.batches)||[]).find(b=>b.id===nb.id);
+    const had = new Set(((pb&&pb.specimens)||[]).map(s=>s.orderId));
+    const has = new Set((nb.specimens||[]).map(s=>s.orderId));
+    delta.batchSpecimenAdds[nb.id] = [...has].filter(id=>!had.has(id));
+    const removed = [...had].filter(id=>!has.has(id));
+    if (removed.length) delta.batchSpecimenRemovals[nb.id] = removed;
+  });
+  if (!base || JSON.stringify(base.checklist) !== JSON.stringify(cur.checklist)) {
+    delta.checklist = cur.checklist;
+  }
+  return delta;
+}
+
+// Patient IDs must be unique across every device sharing a day slot. The
+// old scheme (P + count of patients on this screen) gave two students'
+// first patients the same ID, and the server then treated them as one
+// patient. Sample patients keep their fixed P001-P008 IDs on purpose.
+function newPatientId() {
+  let id;
+  do { id = 'P-' + Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase(); }
+  while (S.patients.some(p=>p.id===id));
+  return id;
+}
+
 async function saveToServer() {
   if (syncBusy) return;
   const day = document.getElementById('syncDay').value;
@@ -359,21 +411,7 @@ async function saveToServer() {
   syncBusy = true;
   setSyncStatus('Saving...');
   try {
-    const payload = {
-      patients: S.patients,
-      orders: S.orders,
-      results: S.results,
-      testCounter: S.testCounter,
-      batches: S.batches,
-      site: S.site,
-      checklist: {
-        state: checklistState,
-        student: checklistStudent,
-        date: checklistDate,
-        evaluator: checklistEval,
-        overallComments: checklistOverallComments
-      }
-    };
+    const payload = buildSaveDelta();
     const res = await fetch(SYNC_API_BASE + '/state?day=' + day, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1004,7 +1042,7 @@ function openAddPatient() {
       const dob=document.getElementById('pdob').value;
       if(!fn||!ln||!dob){alert('First name, last name, and DOB are required.');return;}
       S.patients.push({
-        id:'P'+String(S.patients.length+1).padStart(3,'0'),
+        id:newPatientId(),
         firstName:fn,lastName:ln,dob,
         sex:document.getElementById('psex').value,
         healthNum:document.getElementById('phn').value.trim(),
